@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+dist/
+build/
+.npm
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.env/
+.venv/
+pip-log.txt
+
+# Databases
+*.sqlite3
+medirush.db
+backend/medirush.db
+
+# Env files
+.env
+.env.local
+backend/.env
+patient-app/.env
+hospital-dashboard/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

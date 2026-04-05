@@ -1,0 +1,166 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: #0D0D0D;
+    color: #FFFFFF;
+    font-family: 'DM Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: #1A1A1A; }
+  ::-webkit-scrollbar-thumb { background: #E53935; border-radius: 2px; }
+}
+
+@layer components {
+  .btn-sos {
+    @apply relative flex items-center justify-center rounded-full bg-red cursor-pointer select-none;
+    width: 130px;
+    height: 130px;
+    min-height: 130px;
+    box-shadow: 0 0 40px rgba(229, 57, 53, 0.5);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn-sos:active {
+    transform: scale(0.94);
+    box-shadow: 0 0 60px rgba(229, 57, 53, 0.8);
+  }
+
+  .sos-ring {
+    @apply absolute rounded-full border-2 border-red;
+    width: 130px;
+    height: 130px;
+    animation: pulseRing 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+  }
+  .sos-ring-2 {
+    animation-delay: 0.7s;
+  }
+
+  .screen {
+    @apply min-h-screen flex flex-col px-5;
+    background-color: #0D0D0D;
+  }
+
+  .card {
+    @apply rounded-2xl p-4;
+    background-color: #1A1A1A;
+    border: 1px solid #2A2A2A;
+  }
+
+  .tap-target {
+    @apply flex items-center justify-center;
+    min-height: 56px;
+  }
+
+  .btn-primary {
+    @apply tap-target w-full rounded-xl font-syne font-bold text-white text-base tracking-wide cursor-pointer;
+    background-color: #E53935;
+    border: none;
+    transition: opacity 0.2s, transform 0.15s;
+  }
+  .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-outline {
+    @apply tap-target w-full rounded-xl font-dm text-white text-base cursor-pointer;
+    background: transparent;
+    border: 1px solid #2A2A2A;
+    transition: border-color 0.2s;
+  }
+  .btn-outline:hover { border-color: #E53935; }
+
+  .severity-critical { background: linear-gradient(135deg, #B71C1C 0%, #7f0000 100%); }
+  .severity-moderate { background: linear-gradient(135deg, #E65100 0%, #bf360c 100%); }
+  .severity-normal   { background: linear-gradient(135deg, #1B5E20 0%, #004d40 100%); }
+
+  .waveform-bar {
+    @apply rounded-full;
+    background-color: #E53935;
+    width: 6px;
+    animation: waveBounce 0.8s ease-in-out infinite alternate;
+    transform-origin: bottom;
+  }
+
+  @keyframes waveBounce {
+    from { transform: scaleY(0.3); }
+    to   { transform: scaleY(1); }
+  }
+
+  .symptom-card {
+    @apply rounded-xl p-3 cursor-pointer flex flex-col items-center justify-center gap-1 text-center;
+    min-height: 80px;
+    border: 1px solid #2A2A2A;
+    background-color: #1A1A1A;
+    transition: border-color 0.2s, background-color 0.2s;
+  }
+  .symptom-card.selected {
+    border-color: #E53935;
+    background-color: rgba(229, 57, 53, 0.12);
+  }
+
+  .slider-red {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: #2A2A2A;
+    outline: none;
+  }
+  .slider-red::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: #E53935;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(229,57,53,0.6);
+  }
+
+  .hospital-card {
+    @apply card cursor-pointer;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .hospital-card:active { transform: scale(0.99); }
+  .hospital-card:hover  { border-color: rgba(229,57,53,0.4); }
+
+  .availability-bar {
+    @apply rounded-full;
+    height: 6px;
+    background: #2A2A2A;
+  }
+  .availability-fill {
+    @apply rounded-full h-full;
+    transition: width 0.8s ease-out;
+  }
+
+  /* ECG Line */
+  .ecg-svg {
+    overflow: visible;
+  }
+  .ecg-path {
+    fill: none;
+    stroke: rgba(229,57,53,0.7);
+    stroke-width: 2;
+    stroke-dasharray: 1200;
+    stroke-dashoffset: 1200;
+    animation: ecgDraw 3s linear infinite;
+  }
+  @keyframes ecgDraw {
+    0%   { stroke-dashoffset: 1200; opacity: 1; }
+    80%  { stroke-dashoffset: 0;    opacity: 1; }
+    100% { stroke-dashoffset: 0;    opacity: 0; }
+  }
+}
