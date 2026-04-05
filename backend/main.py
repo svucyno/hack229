@@ -2,10 +2,11 @@
 main.py — MediRush FastAPI Application Entry Point
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from database import init_db, SessionLocal
-from routers import symptoms, hospitals, patients, notifications, tracking
+from routers import symptoms, hospitals, patients, notifications, tracking, auth
+from websocket.manager import manager
 
 app = FastAPI(
     title="MediRush API",
@@ -32,6 +33,38 @@ app.include_router(hospitals.router)
 app.include_router(patients.router)
 app.include_router(notifications.router)
 app.include_router(tracking.router)
+app.include_router(auth.router)
+
+# ─────────────────────────────────────────
+#  WebSockets
+# ─────────────────────────────────────────
+@app.websocket("/ws/hospital/{hospital_id}")
+async def websocket_hospital(websocket: WebSocket, hospital_id: int):
+    await manager.connect_hospital(websocket, hospital_id)
+    try:
+        while True:
+            # We don't expect messages from the hospital dashboard currently, just keeping connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect_hospital(websocket, hospital_id)
+
+@app.websocket("/ws/tracking/{token}")
+async def websocket_tracking(websocket: WebSocket, token: str):
+    await manager.connect_tracking(websocket, token)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect_tracking(websocket, token)
+
+@app.websocket("/ws/patient/{token}")
+async def websocket_patient(websocket: WebSocket, token: str):
+    await manager.connect_patient(websocket, token)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect_patient(token)
 
 
 # ─────────────────────────────────────────

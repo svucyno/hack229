@@ -1,59 +1,78 @@
-"""websocket/manager.py — WebSocket connection manager (Phase 2)"""
-
 from typing import Dict, List
 from fastapi import WebSocket
-
+import json
 
 class ConnectionManager:
-    """
-    Manages active WebSocket connections.
-    Phase 2 will use this to push EMERGENCY_ALERT and DOCTOR_ACCEPTED events.
-    """
-
     def __init__(self):
-        # hospital_id → list of connected WebSocket clients (hospital dashboard)
-        self.hospital_connections: Dict[int, List[WebSocket]] = {}
-        # patient emergency_id → WebSocket (patient app)
-        self.patient_connections: Dict[int, WebSocket] = {}
+        # /ws/hospital/{hospital_id} -> list of websockets (dashboard instances)
+        self.active_hospitals: Dict[int, List[WebSocket]] = {}
+        
+        # /ws/tracking/{token} -> list of websockets (dashboard map layers exploring this token)
+        self.active_trackers: Dict[str, List[WebSocket]] = {}
+        
+        # /ws/patient/{token} -> WebSocket (the single patient app instance waiting for DOCTOR_ACCEPTED)
+        self.active_patients: Dict[str, WebSocket] = {}
 
-    async def connect_hospital(self, hospital_id: int, websocket: WebSocket):
+    # Hospital Channel
+    async def connect_hospital(self, websocket: WebSocket, hospital_id: int):
         await websocket.accept()
-        if hospital_id not in self.hospital_connections:
-            self.hospital_connections[hospital_id] = []
-        self.hospital_connections[hospital_id].append(websocket)
+        if hospital_id not in self.active_hospitals:
+            self.active_hospitals[hospital_id] = []
+        self.active_hospitals[hospital_id].append(websocket)
 
-    async def connect_patient(self, emergency_id: int, websocket: WebSocket):
-        await websocket.accept()
-        self.patient_connections[emergency_id] = websocket
-
-    def disconnect_hospital(self, hospital_id: int, websocket: WebSocket):
-        if hospital_id in self.hospital_connections:
-            self.hospital_connections[hospital_id].remove(websocket)
-
-    def disconnect_patient(self, emergency_id: int):
-        self.patient_connections.pop(emergency_id, None)
+    def disconnect_hospital(self, websocket: WebSocket, hospital_id: int):
+        if hospital_id in self.active_hospitals:
+            if websocket in self.active_hospitals[hospital_id]:
+                self.active_hospitals[hospital_id].remove(websocket)
 
     async def broadcast_to_hospital(self, hospital_id: int, message: dict):
-        import json
-        connections = self.hospital_connections.get(hospital_id, [])
-        disconnected = []
+        connections = self.active_hospitals.get(hospital_id, [])
+        dead_connections = []
         for ws in connections:
             try:
                 await ws.send_text(json.dumps(message))
             except Exception:
-                disconnected.append(ws)
-        for ws in disconnected:
-            connections.remove(ws)
+                dead_connections.append(ws)
+        for dead in dead_connections:
+            self.disconnect_hospital(dead, hospital_id)
 
-    async def send_to_patient(self, emergency_id: int, message: dict):
-        import json
-        ws = self.patient_connections.get(emergency_id)
+    # Tracking Channel (Location Updates)
+    async def connect_tracking(self, websocket: WebSocket, token: str):
+        await websocket.accept()
+        if token not in self.active_trackers:
+            self.active_trackers[token] = []
+        self.active_trackers[token].append(websocket)
+
+    def disconnect_tracking(self, websocket: WebSocket, token: str):
+        if token in self.active_trackers:
+            if websocket in self.active_trackers[token]:
+                self.active_trackers[token].remove(websocket)
+
+    async def broadcast_to_tracking(self, token: str, message: dict):
+        connections = self.active_trackers.get(token, [])
+        dead_connections = []
+        for ws in connections:
+            try:
+                await ws.send_text(json.dumps(message))
+            except Exception:
+                dead_connections.append(ws)
+        for dead in dead_connections:
+            self.disconnect_tracking(dead, token)
+
+    # Patient Channel (Confirmation)
+    async def connect_patient(self, websocket: WebSocket, token: str):
+        await websocket.accept()
+        self.active_patients[token] = websocket
+
+    def disconnect_patient(self, token: str):
+        self.active_patients.pop(token, None)
+
+    async def send_to_patient(self, token: str, message: dict):
+        ws = self.active_patients.get(token)
         if ws:
             try:
                 await ws.send_text(json.dumps(message))
             except Exception:
-                self.disconnect_patient(emergency_id)
+                self.disconnect_patient(token)
 
-
-# Singleton instance used across the app
 manager = ConnectionManager()

@@ -163,4 +163,47 @@
     80%  { stroke-dashoffset: 0;    opacity: 1; }
     100% { stroke-dashoffset: 0;    opacity: 0; }
   }
+
+  /* ───────────────────────────────────────────────
+     Screen Slide Transitions & Safe Areas
+     ─────────────────────────────────────────────── */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 24px);
+  }
+
+  .min-touch {
+    min-height: 56px;
+    min-width: 56px;
+  }
+
+  .screen-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    min-height: 100vh;
+    transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1), opacity 280ms;
+  }
+
+  .screen-wrapper.active {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 10;
+  }
+
+  .screen-wrapper.hidden-left {
+    transform: translateX(-30%);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .screen-wrapper.hidden-right {
+    transform: translateX(100%);
+    opacity: 1;
+    pointer-events: none;
+    z-index: 20;
+  }
 }
+

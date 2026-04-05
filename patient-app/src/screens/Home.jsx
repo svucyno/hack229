@@ -111,7 +111,8 @@ export default function Home({ navigate }) {
         {/* Avatar */}
         <button
           id="profile-avatar"
-          className="flex items-center justify-center rounded-full"
+          onClick={() => navigate('records')}
+          className="flex items-center justify-center rounded-full active:scale-95 transition-transform"
           style={{ width: 40, height: 40, background: '#1A1A1A', border: '1px solid #2A2A2A' }}
           aria-label="Profile"
         >
@@ -139,7 +140,7 @@ export default function Home({ navigate }) {
           <button
             id="my-health-records-btn"
             className="btn-outline"
-            onClick={() => {}}
+            onClick={() => navigate('records')}
           >
             <span className="flex items-center gap-2">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="#888">

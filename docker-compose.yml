@@ -10,10 +10,8 @@ services:
     volumes:
       - ./backend:/app
       - medirush-db:/app/data
-    environment:
-      - DATABASE_URL=sqlite:///./medirush.db
-      - JWT_SECRET=${JWT_SECRET:-medirush-dev-secret}
-      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
+    env_file:
+      - .env
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -26,20 +24,30 @@ services:
       context: ./patient-app
       dockerfile: Dockerfile
     ports:
-      - "5173:80"
+      - "3000:3000"
+    volumes:
+      - ./patient-app:/app
+      - /app/node_modules
     depends_on:
       - backend
     restart: unless-stopped
+    env_file:
+      - .env
 
   hospital-dashboard:
     build:
       context: ./hospital-dashboard
       dockerfile: Dockerfile
     ports:
-      - "5174:80"
+      - "3001:3001"
+    volumes:
+      - ./hospital-dashboard:/app
+      - /app/node_modules
     depends_on:
       - backend
     restart: unless-stopped
+    env_file:
+      - .env
 
 volumes:
   medirush-db:

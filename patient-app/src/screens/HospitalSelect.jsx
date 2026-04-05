@@ -262,7 +262,7 @@ export default function HospitalSelect({ navigate, state, setState }) {
       setState(prev => ({ ...prev, selectedHospital: hospital, token, emergencyId: emergency_id }))
       setToast(`Hospital Notified! Token: ${token}`)
       setTimeout(() => {
-        navigate('navigate', { selectedHospital: hospital, token, emergencyId: emergency_id })
+        navigate('navigation', { selectedHospital: hospital, token, emergencyId: emergency_id })
       }, 2000)
     } catch (err) {
       setToast('Could not notify. Please try again.')
