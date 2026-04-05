@@ -1,34 +1,24 @@
-"""routers/symptoms.py — POST /analyze_symptoms"""
+# backend/routers/symptoms.py
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import List, Optional
 from ai.triage import analyze
 
 router = APIRouter(prefix="/api", tags=["Triage"])
 
-
-class VitalsInput(BaseModel):
-    hr: Optional[float] = None    # heart rate BPM
-    spo2: Optional[float] = None  # SpO2 %
-
-
-class SymptomsRequest(BaseModel):
-    symptoms:   List[str]       = []
-    vitals:     Optional[VitalsInput] = None
-    transcript: Optional[str]   = None
-    wpm:        Optional[float] = None   # words per minute (voice stress proxy)
-
+class SymptomRequest(BaseModel):
+    symptoms: list[str]
+    vitals: dict = {"hr": 75, "spo2": 98}
+    transcript: str = ""
+    wpm: int = 130
 
 @router.post("/analyze_symptoms")
-async def analyze_symptoms(body: SymptomsRequest):
-    hr   = body.vitals.hr   if body.vitals else None
-    spo2 = body.vitals.spo2 if body.vitals else None
-
+def analyze_symptoms(req: SymptomRequest):
     result = analyze(
-        symptoms=body.symptoms,
-        hr=hr,
-        spo2=spo2,
-        wpm=body.wpm,
+        symptoms=req.symptoms,
+        hr=req.vitals.get("hr", 75),
+        spo2=req.vitals.get("spo2", 98),
+        transcript=req.transcript,
+        wpm=req.wpm,
     )
     return result

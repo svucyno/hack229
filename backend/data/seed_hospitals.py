@@ -1,71 +1,83 @@
-"""
-seed_hospitals.py — Seeds the hospitals table from hospitals.json.
-Run directly: python -m backend.data.seed_hospitals
-Or called automatically by main.py on startup if DB is empty.
-"""
+# backend/data/seed_hospitals.py
+# Run this once: python seed_hospitals.py
 
-import json
-import os
-from datetime import datetime
+import sys, os, uuid, json
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from database import SessionLocal, Hospital, Patient, HospitalStaff, init_db
+from passlib.hash import bcrypt
 
-# ── Dynamic bed occupancy based on time-of-day ──────────────────────────────
-def get_dynamic_beds_occupied(beds_total: int) -> int:
-    """
-    Simulate realistic occupancy:
-    - Peak hours (8–10 AM, 5–9 PM): 60–90% occupied
-    - Off-peak: 40–60% occupied
-    """
-    hour = datetime.now().hour
-    if 8 <= hour <= 10 or 17 <= hour <= 21:
-        ratio = 0.60 + (hour % 4) * 0.075   # 60–90%
-    else:
-        ratio = 0.40 + (hour % 6) * 0.033   # 40–60%
-    ratio = min(ratio, 0.92)
-    return int(beds_total * ratio)
+init_db()
+db = SessionLocal()
 
+# Clear existing data
+db.query(Hospital).delete()
+db.query(Patient).delete()
+db.query(HospitalStaff).delete()
 
-def seed(db_session):
-    from database import Hospital  # local import to avoid circular deps
+hospitals = [
+    {"name": "SVIMS", "city": "Tirupati", "lat": 13.6372, "lng": 79.4200,
+     "type": "Government", "phone": "0877-2287777",
+     "specializations": ["Neurology","Cardiology","Oncology","Nephrology"],
+     "beds_total": 850, "icu_beds": 60},
+    {"name": "Ruia Government Hospital", "city": "Tirupati", "lat": 13.6356, "lng": 79.4105,
+     "type": "Government", "phone": "0877-2224585",
+     "specializations": ["General Medicine","Trauma","Obstetrics"],
+     "beds_total": 400, "icu_beds": 20},
+    {"name": "Apollo Hospitals Tirupati", "city": "Tirupati", "lat": 13.6213, "lng": 79.4091,
+     "type": "Private", "phone": "0877-2233333",
+     "specializations": ["Cardiology","Neurology","Orthopedics","Trauma"],
+     "beds_total": 200, "icu_beds": 30},
+    {"name": "Sri Padmavathi Medical College", "city": "Tirupati", "lat": 13.6319, "lng": 79.4146,
+     "type": "Private", "phone": "0877-2289000",
+     "specializations": ["General Surgery","Pediatrics","Gynecology"],
+     "beds_total": 500, "icu_beds": 25},
+    {"name": "Star Hospital Tirupati", "city": "Tirupati", "lat": 13.6289, "lng": 79.4178,
+     "type": "Private", "phone": "0877-6624444",
+     "specializations": ["Multi-specialty","Orthopedics","Cardiology"],
+     "beds_total": 120, "icu_beds": 15},
+]
 
-    json_path = os.path.join(os.path.dirname(__file__), "hospitals.json")
-    with open(json_path, "r") as f:
-        hospitals_data = json.load(f)
+for h in hospitals:
+    hospital_id = str(uuid.uuid4())
+    db.add(Hospital(
+        id=hospital_id, name=h["name"], city=h["city"], state="Andhra Pradesh",
+        lat=h["lat"], lng=h["lng"], phone=h["phone"], type=h["type"],
+        specializations=json.dumps(h["specializations"]),
+        beds_total=h["beds_total"], beds_occupied=int(h["beds_total"] * 0.7),
+        emergency_bay=True, icu_beds=h["icu_beds"], rating=round(3.5 + 1.4 * 0.7, 1),
+        address=f"{h['city']}, Andhra Pradesh"
+    ))
+    # Seed one doctor + one nurse per hospital
+    db.add(HospitalStaff(
+        id=str(uuid.uuid4()), hospital_id=hospital_id,
+        name="Dr. Ramesh Kumar", role="doctor",
+        email=f"doctor@{h['name'].lower().replace(' ','')}.com",
+        password_hash=bcrypt.hash("doctor123")
+    ))
+    db.add(HospitalStaff(
+        id=str(uuid.uuid4()), hospital_id=hospital_id,
+        name="Nurse Priya", role="nurse",
+        email=f"nurse@{h['name'].lower().replace(' ','')}.com",
+        password_hash=bcrypt.hash("nurse123")
+    ))
 
-    existing = db_session.query(Hospital).count()
-    if existing > 0:
-        print(f"[seed] {existing} hospitals already in DB — skipping seed.")
-        return
+# Seed demo patient
+db.add(Patient(
+    id="demo-patient-001", name="Ravi Kumar", age=34, sex="Male",
+    blood_type="O+", allergies="Penicillin",
+    chronic_conditions="Hypertension,Type 2 Diabetes",
+    current_medications="Amlodipine 5mg,Metformin 500mg",
+    vitals_history=json.dumps([
+        {"date": "2025-01-05", "bp": "138/88", "hr": 82},
+        {"date": "2025-01-10", "bp": "142/90", "hr": 79},
+        {"date": "2025-01-15", "bp": "135/85", "hr": 84},
+    ]),
+    visit_history=json.dumps([
+        {"date": "2025-01-12", "hospital": "Apollo Hospitals Tirupati",
+         "diagnosis": "Hypertensive Crisis"}
+    ])
+))
 
-    for h in hospitals_data:
-        beds_total = h["beds_total"]
-        hospital = Hospital(
-            id              = h["id"],
-            name            = h["name"],
-            address         = h["address"],
-            city            = h["city"],
-            state           = h["state"],
-            lat             = h["lat"],
-            lng             = h["lng"],
-            phone           = h["phone"],
-            type            = h["type"],
-            specializations = json.dumps(h["specializations"]),
-            beds_total      = beds_total,
-            beds_occupied   = get_dynamic_beds_occupied(beds_total),
-            emergency_bay   = h["emergency_bay"],
-            icu_beds        = h["icu_beds"],
-            rating          = h["rating"],
-        )
-        db_session.add(hospital)
-
-    db_session.commit()
-    print(f"[seed] Seeded {len(hospitals_data)} hospitals successfully.")
-
-
-if __name__ == "__main__":
-    import sys
-    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-    from database import SessionLocal, init_db
-    init_db()
-    db = SessionLocal()
-    seed(db)
-    db.close()
+db.commit()
+db.close()
+print("Seeding complete.")

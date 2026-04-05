@@ -28,7 +28,7 @@
 
 @layer components {
   .btn-sos {
-    @apply relative flex items-center justify-center rounded-full bg-red cursor-pointer select-none;
+    @apply relative flex items-center justify-center rounded-full bg-emergency cursor-pointer select-none;
     width: 130px;
     height: 130px;
     min-height: 130px;
@@ -41,7 +41,7 @@
   }
 
   .sos-ring {
-    @apply absolute rounded-full border-2 border-red;
+    @apply absolute rounded-full border-2 border-emergency;
     width: 130px;
     height: 130px;
     animation: pulseRing 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;

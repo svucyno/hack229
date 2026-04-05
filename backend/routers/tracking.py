@@ -1,28 +1,20 @@
+# backend/routers/tracking.py
+
 from fastapi import APIRouter
-from pydantic import BaseModel
 from websocket.manager import manager
+import json
 
 router = APIRouter(prefix="/api", tags=["Tracking"])
 
-class LocationUpdate(BaseModel):
-    token: str
-    lat: float
-    lng: float
-
 @router.patch("/tracking/{token}")
-async def update_tracking(token: str, body: LocationUpdate):
-    """
-    Update patient location and broadcast to WebSocket.
-    """
-    # In a full app, we'd update the DB. For Phase 2, broadcasting is sufficient.
-    
-    update_msg = {
+async def update_location(token: str, body: dict):
+    lat = body.get("lat")
+    lng = body.get("lng")
+    hospital_id = body.get("hospital_id")
+    message = json.dumps({
         "type": "LOCATION_UPDATE",
-        "token": body.token,
-        "lat": body.lat,
-        "lng": body.lng
-    }
-    
-    await manager.broadcast_to_tracking(token, update_msg)
-    
-    return {"status": "updated", "lat": body.lat, "lng": body.lng}
+        "lat": lat, "lng": lng, "token": token
+    })
+    if hospital_id:
+        await manager.broadcast_to_hospital(hospital_id, message)
+    return {"status": "updated"}
