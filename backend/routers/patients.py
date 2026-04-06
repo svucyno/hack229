@@ -72,3 +72,5 @@ def generate_token():
     token = str(uuid.uuid4())[:8].upper()
     expires_at = (datetime.utcnow() + timedelta(minutes=20)).isoformat()
     return {"token": token, "expires_at": expires_at}
+
+        

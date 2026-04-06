@@ -48,7 +48,7 @@ async def hospital_ws(websocket: WebSocket, hospital_id: str):
         while True:
             data = await websocket.receive_text()
             msg = json.loads(data)
-            if msg.get("type") == "DOCTOR_ACCEPTED":
+            if msg.get("type") == "DOCTOR_ACCEPTED" or msg.get("type") == "ARRIVED" or msg.get("type") == "COMPLETED":
                 token = msg.get("token", "")
                 await manager.broadcast_to_patient(token, json.dumps(msg))
             elif msg.get("type") == "BED_UPDATE":

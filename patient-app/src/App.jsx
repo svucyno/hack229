@@ -7,6 +7,7 @@ import HospitalSelectScreen from "./screens/HospitalSelect"
 import NavigationScreen from "./screens/Navigation"
 import ConfirmationScreen from "./screens/Confirmation"
 import HealthRecordsScreen from "./screens/HealthRecords"
+import FeedbackScreen from "./screens/Feedback"
 
 export default function App() {
   const [screen, setScreen] = useState("home")
@@ -15,6 +16,7 @@ export default function App() {
   const [selectedHospital, setSelectedHospital] = useState(null)
   const [token, setToken] = useState(null)
   const [toast, setToast] = useState(null)
+  const [language, setLanguage] = useState(localStorage.getItem("medirush_lang") || "en")
 
   const showToast = (msg) => {
     setToast(msg)
@@ -23,11 +25,17 @@ export default function App() {
 
   const go = (s) => setScreen(s)
 
+  const updateLanguage = (lang) => {
+    setLanguage(lang)
+    localStorage.setItem("medirush_lang", lang)
+  }
+
   const ctx = {
     go, triageData, setTriageData,
     hospitals, setHospitals,
     selectedHospital, setSelectedHospital,
-    token, setToken, showToast
+    token, setToken, showToast,
+    language, updateLanguage
   }
 
   const screens = {
@@ -38,12 +46,22 @@ export default function App() {
     navigation: <NavigationScreen {...ctx} />,
     confirmation: <ConfirmationScreen {...ctx} />,
     records: <HealthRecordsScreen {...ctx} />,
+    feedback: <FeedbackScreen {...ctx} />,
   }
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%", maxWidth: 430, margin: "0 auto", overflow: "hidden", background: "#0D0D0D" }}>
-      {screens[screen]}
-      {toast && <div className="toast">{toast}</div>}
+    <div style={{ position: "relative", width: "100%", height: "100%", maxWidth: 430, margin: "0 auto", overflow: "hidden", background: "#0D0D0D", display: "flex", flexDirection: "column" }}>
+      {/* FEATURE 13: LANGUAGE BANNER */}
+      {language !== "en" && screen !== "home" && (
+        <div style={{ background: "#FFF9C4", padding: "6px 12px", textAlign: "center", fontSize: 11, fontWeight: 600, color: "#827717", zIndex: 100 }}>
+          Full {language === "te" ? "Telugu" : "Hindi"} support coming soon
+        </div>
+      )}
+      
+      <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+        {screens[screen]}
+        {toast && <div className="toast" style={{ zIndex: 1000 }}>{toast}</div>}
+      </div>
     </div>
   )
 }

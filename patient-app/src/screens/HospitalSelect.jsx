@@ -16,19 +16,38 @@ export default function HospitalSelectScreen({ go, triageData, setSelectedHospit
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       try {
-        navigator.geolocation.getCurrentPosition(async (pos) => {
-          const data = await getHospitalRecommendations({
+        // Promise-based geolocation with timeout
+        const getPos = () => new Promise((res, rej) => {
+          navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 });
+        });
+
+        let pos;
+        try {
+          pos = await getPos();
+        } catch (e) {
+          console.warn("Geolocation failed or timed out", e);
+        }
+
+        let data = [];
+        if (pos) {
+          data = await getHospitalRecommendations({
             lat: pos.coords.latitude, lng: pos.coords.longitude,
             condition: triageData?.condition || "", severity: triageData?.severity || "CRITICAL"
-          })
-          setHospitals(data.length ? data : DEMO_HOSPITALS)
-        }, () => setHospitals(DEMO_HOSPITALS))
-      } catch { setHospitals(DEMO_HOSPITALS) }
-      finally { setLoading(false) }
-    }
-    load()
-  }, [])
+          });
+        }
+        
+        setHospitals(data && data.length > 0 ? data : DEMO_HOSPITALS);
+      } catch (err) {
+        console.error("Failed to load hospitals", err);
+        setHospitals(DEMO_HOSPITALS);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [triageData]);
 
   const BADGES = ["⭐ Best Match", "⚡ Fastest", ""]
   const FILTERS = ["All", "Nearest", "Best Match", "Beds Available"]

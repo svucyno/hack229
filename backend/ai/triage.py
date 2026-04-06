@@ -3,7 +3,7 @@
 SYMPTOM_SEVERITY_MAP = {
     # Critical - Life Threatening (8-10)
     "heart attack": 10, "no pulse": 10, "not breathing": 10, "unconscious": 10,
-    "anaphylaxis": 10, "severe bleeding": 9.5, "chest pain": 9, "chest pressure": 9,
+    "anaphylaxis": 10, "severe bleeding": 9.5, "chest pain": 9.2, "chest pressure": 9.2,
     "can't breathe": 9.5, "shortness of breath": 8.5, "stroke": 9.5,
     "face drooping": 9.5, "arm weakness": 9, "throat swelling": 9.5,
     "worst headache of life": 9.5, "seizure": 8.5, "heavy bleeding": 8.5,
@@ -57,10 +57,12 @@ def detect_condition(symptoms: list[str]) -> str:
     return "General Emergency"
 
 def classify(symptom_score, vitals_score, voice_stress=0):
-    # Weights: 65% Symptoms, 25% Vitals, 10% Voice Stress
-    final = min(10, symptom_score * 0.65 + vitals_score * 0.25 + voice_stress * 0.10)
-    if final >= 7.5: return "CRITICAL", round(final, 1)
-    if final >= 4.0: return "MODERATE", round(final, 1)
+    # Weights: 75% Symptoms, 20% Vitals, 5% Voice Stress
+    final = min(10, symptom_score * 0.75 + vitals_score * 0.20 + voice_stress * 0.05)
+    if final >= 6.8: # Lowered from 7.5 to be more sensitive to high-score symptoms
+        return "CRITICAL", round(final, 1)
+    if final >= 3.5: # Lowered from 4.0
+        return "MODERATE", round(final, 1)
     return "NORMAL", round(final, 1)
 
 def analyze(symptoms: list, hr: int = 75, spo2: int = 98,

@@ -68,8 +68,39 @@ class HospitalStaff(Base):
     email = Column(String, unique=True)
     password_hash = Column(String)
 
+from passlib.context import CryptContext
+import json
+
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
 def init_db():
     Base.metadata.create_all(bind=engine)
+    seed_data()
+
+def seed_data():
+    db = SessionLocal()
+    try:
+        # Seed Hospitals if empty
+        if db.query(Hospital).count() == 0:
+            hospitals = [
+                Hospital(id="h1", name="Apollo Hospitals Tirupati", city="Tirupati", lat=13.6213, lng=79.4091, phone="0877-2266666", type="Private", beds_total=200, beds_occupied=178, specializations=json.dumps(["Cardiology","Neurology","Trauma"]), rating=4.8),
+                Hospital(id="h2", name="SVIMS", city="Tirupati", lat=13.6372, lng=79.4200, phone="0877-2287777", type="Government", beds_total=850, beds_occupied=805, specializations=json.dumps(["Neurology","Cardiology","Oncology"]), rating=4.5),
+                Hospital(id="h3", name="Ruia Government Hospital", city="Tirupati", lat=13.6356, lng=79.4105, phone="0877-2286666", type="Government", beds_total=400, beds_occupied=370, specializations=json.dumps(["General Medicine","Trauma"]), rating=4.2),
+            ]
+            db.add_all(hospitals)
+            db.commit()
+        
+        # Seed Staff if empty
+        if db.query(HospitalStaff).count() == 0:
+            staff = HospitalStaff(
+                id="s1", hospital_id="h1", name="Dr. Ramesh Kumar",
+                role="Emergency Head", email="admin@hospital.com",
+                password_hash=pwd_context.hash("admin123")
+            )
+            db.add(staff)
+            db.commit()
+    finally:
+        db.close()
 
 def get_db():
     db = SessionLocal()

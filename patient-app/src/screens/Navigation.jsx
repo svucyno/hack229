@@ -28,9 +28,13 @@ export default function NavigationScreen({ go, selectedHospital, token, showToas
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data)
       if (msg.type === "DOCTOR_ACCEPTED") setDoctorReady(true)
+      if (msg.type === "ARRIVED" || msg.type === "COMPLETED") {
+        showToast("You've arrived! 🎉")
+        setTimeout(() => go("feedback"), 2000)
+      }
     }
     return () => ws.close()
-  }, [])
+  }, [token, h.id])
 
   return (
     <div className="screen" style={{ padding:0 }}>

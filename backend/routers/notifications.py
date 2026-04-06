@@ -46,3 +46,14 @@ async def accept_case(body: dict):
     })
     await manager.broadcast_to_patient(token, message)
     return {"status": "accepted"}
+
+
+@router.post("/mark_arrived")
+async def mark_arrived(body: dict):
+    token = body.get("token", "")
+    message = json.dumps({
+        "type": "ARRIVED",
+        "message": "You have arrived at the hospital. Please proceed to the help desk."
+    })
+    await manager.broadcast_to_patient(token, message)
+    return {"status": "arrived"}
