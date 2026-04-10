@@ -1,290 +1,206 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef } from 'react'
+import LiveMap from '../components/LiveMap'
 
-const BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000"
-const WS_BASE = import.meta.env.VITE_WS_BASE || "ws://localhost:8000"
-
-const DEMO_ALERTS = [
-  { id:1, name:"Ravi Kumar", age:34, sex:"M", condition:"Cardiac Event", severity:"CRITICAL", score:9.2, eta_seconds:390, token:"A3F9-72XK", timestamp:"2 min ago",
-    allergies:"Penicillin", bloodType:"O+", conditions:"Hypertension, Type 2 Diabetes", meds:"Amlodipine 5mg, Metformin 500mg",
-    symptoms:["Chest pain","Shortness of breath","Left arm numbness"], lat:13.628, lng:79.419 },
-  { id:2, name:"Priya Sharma", age:28, sex:"F", condition:"Stroke", severity:"CRITICAL", score:8.7, eta_seconds:540, token:"B7K2-91PX", timestamp:"5 min ago",
-    allergies:"None", bloodType:"A+", conditions:"None", meds:"None",
-    symptoms:["Face drooping","Arm weakness","Speech difficulty"], lat:13.631, lng:79.422 },
-  { id:3, name:"Suresh Babu", age:55, sex:"M", condition:"Fracture", severity:"MODERATE", score:5.5, eta_seconds:720, token:"C4M8-37QZ", timestamp:"8 min ago",
-    allergies:"Sulfa", bloodType:"B+", conditions:"Osteoporosis", meds:"Calcium 500mg",
-    symptoms:["Leg fracture","Severe pain"], lat:13.625, lng:79.416 },
-]
-
-export default function Dashboard({ auth, onLogout }) {
-  const [alerts, setAlerts] = useState(DEMO_ALERTS)
-  const [active, setActive] = useState(DEMO_ALERTS[0])
-  const [accepted, setAccepted] = useState({})
-  const [beds, setBeds] = useState({ total:200, occupied:178, icu_total:30, icu_occ:21 })
-  const [wsConnected, setWsConnected] = useState(false)
-  const [patientLat, setPatientLat] = useState(13.628)
-  const wsRef = useRef(null)
-
-  useEffect(() => {
-    const connect = () => {
-      const ws = new WebSocket(`${WS_BASE}/ws/hospital/${auth.hospital_id || "h1"}`)
-      ws.onopen = () => setWsConnected(true)
-      ws.onclose = () => { setWsConnected(false); setTimeout(connect, 3000) }
-      ws.onmessage = (e) => {
-        const msg = JSON.parse(e.data)
-        if (msg.type === "EMERGENCY_ALERT") {
-          const newAlert = {
-            id: Date.now(), name: msg.patient?.name || "Unknown",
-            age: msg.patient?.age || "—", sex: msg.patient?.sex || "—",
-            condition: msg.condition, severity: msg.severity,
-            score: msg.priority_score, eta_seconds: msg.eta_seconds,
-            token: msg.token, timestamp: "Just now",
-            symptoms: msg.patient?.symptoms || [],
-            allergies: msg.patient?.allergies || "None",
-            bloodType: msg.patient?.blood_type || "—",
-            conditions: msg.patient?.conditions || "None",
-            meds: msg.patient?.medications || "None",
-            lat: msg.patient?.lat || 13.628, lng: msg.patient?.lng || 79.419
-          }
-          setAlerts(a => [newAlert, ...a])
-          setActive(newAlert)
-        }
-        if (msg.type === "LOCATION_UPDATE") {
-          setPatientLat(msg.lat)
-        }
-      }
-      wsRef.current = ws
-    }
-    connect()
-    return () => wsRef.current?.close()
-  }, [auth.hospital_id])
-
-  const handleAccept = async (alert) => {
-    try {
-      await fetch(`${BASE}/api/accept_case`, {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ token: alert.token, doctor_name: auth.name, hospital_name: auth.hospital_name || "Apollo Hospitals Tirupati" })
-      })
-    } catch {}
-    setAccepted(a => ({...a, [alert.id]: true}))
-    setBeds(b => ({...b, occupied: Math.min(b.total, b.occupied + 1)}))
-  }
-
-  const etaFmt = (s) => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`
-  const bedPct = Math.round((beds.occupied / beds.total) * 100)
-  const icuPct = Math.round((beds.icu_occ / beds.icu_total) * 100)
-  const bedColor = bedPct > 80 ? "#FF3B30" : bedPct > 60 ? "#FFB300" : "#00E676"
-  const icuColor = icuPct > 70 ? "#FF3B30" : icuPct > 50 ? "#FFB300" : "#00E676"
+export default function Dashboard() {
+  const [alerts, setAlerts] = useState([
+    { id: 1, type: 'CRITICAL', patient: 'Rahul Sharma', age: 45, condition: 'Cardiac Arrest', loc: 'Tirupati Central', time: '2m ago', active: true, eto: '4m' },
+    { id: 2, type: 'URGENT', patient: 'Lata Reddy', age: 32, condition: 'Severe Trauma', loc: 'Bypass Road', time: '5m ago', active: true, eto: '7m' },
+    { id: 3, type: 'STABLE', patient: 'Anil Kumar', age: 28, condition: 'Acute Nausea', loc: 'SV University', time: '12m ago', active: false, eto: '15m' }
+  ])
+  
+  const [activeAlert, setActiveAlert] = useState(alerts[0])
+  const [stats, setStats] = useState({ active: 24, available: 12, icu: 3, er: 8 })
 
   return (
-    <div style={{ height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
-      {/* TOP BAR */}
-      <div style={{ height:52, background:"#0A1628", borderBottom:"1px solid #1A3A5C", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 20px", flexShrink:0 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:28, height:28, background:"#FF3B30", borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2v20M2 12h20"/></svg>
-          </div>
-          <span style={{ fontWeight:700, fontSize:15 }}>MediRush</span>
-          <span style={{ fontSize:12, color:"#607D8B" }}>Hospital Dashboard</span>
-          <span style={{ fontSize:12, color:"#607D8B" }}>— {auth.hospital_name || "Apollo Hospitals Tirupati"}</span>
-        </div>
-        <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <span className="pulse-dot" style={{ background: wsConnected ? "#00E676" : "#FF3B30" }} />
-            <span style={{ fontSize:12, color: wsConnected ? "#00E676" : "#FF3B30" }}>{wsConnected ? "LIVE" : "OFFLINE"}</span>
-          </div>
-          <span className="badge badge-red">{alerts.filter(a=>a.severity==="CRITICAL").length} Critical</span>
-          <span style={{ fontSize:12, color:"#607D8B" }}>{auth.name} · {auth.role}</span>
-          <button onClick={onLogout} style={{ background:"none", border:"1px solid #1A3A5C", color:"#607D8B", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:12 }}>Logout</button>
-        </div>
-      </div>
+    <div className="flex h-screen bg-[#F8FAFC]">
+      {/* SCANLINE OVERLAY */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.01] z-50" style={{ backgroundImage: 'linear-gradient(rgba(239, 68, 68, 0) 50%, rgba(239, 68, 68, 0.05) 50%), linear-gradient(90deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.02), rgba(239, 68, 68, 0.05))', backgroundSize: '100% 2px, 3px 100%' }}></div>
 
-      {/* MAIN 3-COLUMN */}
-      <div style={{ flex:1, display:"grid", gridTemplateColumns:"22% 1fr 28%", gap:0, overflow:"hidden" }}>
-
-        {/* LEFT — Alert Feed */}
-        <div style={{ background:"#0A1628", borderRight:"1px solid #1A3A5C", display:"flex", flexDirection:"column", overflow:"hidden" }}>
-          <div style={{ padding:"12px 14px", borderBottom:"1px solid #1A3A5C", display:"flex", alignItems:"center", gap:8 }}>
-            <span className="pulse-dot" />
-            <span style={{ fontSize:12, fontWeight:700, letterSpacing:"0.08em" }}>INCOMING ALERTS</span>
+      {/* Sidebar - Control Panel */}
+      <aside className="w-80 panel border-r flex flex-col z-20">
+        <div className="p-8 border-b">
+          <div className="flex items-center gap-4 mb-2">
+            <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-200">
+               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><path d="M12 2v20M2 12h20"/></svg>
+            </div>
+            <h1 className="font-syne italic text-2xl font-black tracking-tighter text-slate-900 uppercase">MEDIRUSH<span className="text-red-600">HQ</span></h1>
           </div>
-          <div style={{ flex:1, overflowY:"auto" }}>
-            {alerts.map(a => (
-              <div key={a.id}
-                className={`alert-${a.severity.toLowerCase()}`}
-                onClick={() => setActive(a)}
-                style={{ padding:"12px 14px", cursor:"pointer", borderBottom:"1px solid #1A3A5C", background: active?.id===a.id ? "rgba(0,188,212,0.08)" : "transparent", transition:"background 0.2s", animation:"slideIn 0.3s ease" }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                  <span style={{ fontSize:13, fontWeight:600 }}>{a.name}, {a.age}{a.sex}</span>
-                  <span className={`badge badge-${a.severity==="CRITICAL"?"red":a.severity==="MODERATE"?"amber":"green"}`}>{a.severity}</span>
-                </div>
-                <p style={{ fontSize:12, color:"#607D8B", marginBottom:2 }}>{a.condition}</p>
-                <div style={{ display:"flex", justifyContent:"space-between" }}>
-                  <span className="mono" style={{ fontSize:11, color:"#00BCD4" }}>P: {a.score}/10</span>
-                  <span style={{ fontSize:10, color:"#607D8B" }}>{a.timestamp}</span>
-                </div>
-                {accepted[a.id] && <span className="badge badge-green" style={{ marginTop:4 }}>✓ Accepted</span>}
-              </div>
-            ))}
-          </div>
+          <p className="font-mono text-[9px] font-bold text-red-600 tracking-[0.3em]">MISSION CONTROL INTERFACE v4.0</p>
         </div>
 
-        {/* CENTER — Patient Card */}
-        <div style={{ background:"#050D1A", overflowY:"auto", padding:20 }}>
-          {active ? (
-            <div style={{ animation:"slideIn 0.3s ease" }}>
-              {/* Header */}
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
-                <div>
-                  <div style={{ display:"flex", gap:8, marginBottom:6 }}>
-                    <span className={`badge badge-${active.severity==="CRITICAL"?"red":active.severity==="MODERATE"?"amber":"green"}`} style={{ fontSize:12, padding:"4px 12px" }}>
-                      {active.severity}
-                    </span>
-                    <span className="badge badge-teal">Priority {active.score}/10</span>
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+          <div className="mb-8">
+            <p className="font-mono text-[10px] font-black text-slate-400 tracking-widest mb-6 p-2 bg-slate-50 rounded">ACTIVE ALERTS</p>
+            <div className="space-y-4">
+              {alerts.map(alert => (
+                <div 
+                  key={alert.id}
+                  onClick={() => setActiveAlert(alert)}
+                  className={`p-5 rounded-2xl cursor-pointer transition-all border ${activeAlert?.id === alert.id ? 'bg-red-50 border-red-200 shadow-lg shadow-red-100' : 'bg-white border-slate-100 hover:border-slate-200'}`}
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <span className={`badge-${alert.type === 'CRITICAL' ? 'red' : alert.type === 'URGENT' ? 'amber' : 'green'}`}>{alert.type}</span>
+                    <span className="font-mono text-[10px] font-black text-slate-400">{alert.time}</span>
                   </div>
-                  <h2 style={{ fontSize:22, fontWeight:700, marginBottom:2 }}>INCOMING PATIENT</h2>
-                  <p style={{ fontSize:13, color:"#607D8B" }}>Token: <span className="mono" style={{ color:"#00BCD4" }}>{active.token}</span></p>
-                </div>
-                <EtaCountdown seconds={active.eta_seconds} />
-              </div>
-
-              {/* Grid */}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
-                {[["Name", active.name],["Age/Sex", `${active.age} / ${active.sex}`],["Condition", active.condition],["Blood Type", active.bloodType]].map(([k,v]) => (
-                  <div key={k} style={{ background:"#0A1628", border:"1px solid #1A3A5C", borderRadius:10, padding:10 }}>
-                    <p style={{ fontSize:10, color:"#607D8B", marginBottom:3, textTransform:"uppercase", letterSpacing:"0.06em" }}>{k}</p>
-                    <p style={{ fontSize:14, fontWeight:600 }}>{v}</p>
+                  <h3 className="font-syne font-black text-lg text-slate-900 leading-tight mb-2 uppercase">{alert.patient}</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                     <div>
+                       <p className="text-[9px] font-black text-slate-400 tracking-tighter">CONDITION</p>
+                       <p className="text-xs font-bold text-slate-800">{alert.condition}</p>
+                     </div>
+                     <div className="text-right">
+                       <p className="text-[9px] font-black text-slate-400 tracking-tighter">ETA</p>
+                       <p className="text-xs font-black text-red-600">{alert.eto}</p>
+                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
-              {/* Symptoms */}
-              <div style={{ background:"#0A1628", border:"1px solid #1A3A5C", borderRadius:12, padding:14, marginBottom:10 }}>
-                <p style={{ fontSize:11, color:"#607D8B", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.06em" }}>Reported Symptoms</p>
-                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                  {(Array.isArray(active.symptoms) ? active.symptoms : [active.symptoms]).map((s,i) => (
-                    <span key={i} style={{ fontSize:12, padding:"3px 10px", background:"rgba(255,59,48,0.1)", border:"1px solid rgba(255,59,48,0.2)", borderRadius:20, color:"#FF7070" }}>{s}</span>
-                  ))}
+        <div className="p-8 border-t bg-slate-50">
+           <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-slate-200 border-2 border-white shadow-sm flex items-center justify-center overflow-hidden">
+                 <img src="https://i.pravatar.cc/100?u=doc1" alt="doc" className="w-full h-full object-cover" />
+              </div>
+              <div>
+                <p className="text-xs font-black text-slate-900 uppercase">Dr. Abhinav Reddy</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">Chief In-Charge</p>
                 </div>
               </div>
+           </div>
+        </div>
+      </aside>
 
-              {/* Medical History */}
-              <div style={{ background:"#0A1628", border:"1px solid #1A3A5C", borderRadius:12, padding:14, marginBottom:14 }}>
-                <p style={{ fontSize:11, color:"#607D8B", marginBottom:10, textTransform:"uppercase", letterSpacing:"0.06em" }}>Medical History</p>
-                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                  {[["Allergies", active.allergies, active.allergies!=="None"?"#FF3B30":"#00E676"],
-                    ["Conditions", active.conditions, "#FFB300"],
-                    ["Medications", active.meds, "#00BCD4"]].map(([k,v,c]) => (
-                    <div key={k} style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
-                      <span style={{ fontSize:11, color:"#607D8B", minWidth:80 }}>{k}:</span>
-                      <span style={{ fontSize:12, color:c, fontWeight:500 }}>{v}</span>
+      {/* Main Dashboard - Map & Analytics */}
+      <main className="flex-1 relative flex flex-col">
+        {/* Map Header Overlay */}
+        <div className="absolute top-8 left-8 right-8 z-10 pointer-events-none">
+           <div className="flex justify-between items-start">
+              <div className="bg-white/95 backdrop-blur-xl border border-slate-200 p-6 rounded-3xl shadow-xl shadow-slate-200/50 pointer-events-auto flex gap-12">
+                 <div>
+                   <p className="text-[10px] font-black text-slate-400 tracking-[0.2em] mb-2 uppercase">TOTAL INTERCEPTS</p>
+                   <p className="font-mono text-3xl font-black text-slate-900 leading-none tracking-tighter">1,280 <span className="text-green-500 text-xs ml-1">↑ 12%</span></p>
+                 </div>
+                 <div className="w-px h-10 bg-slate-200 mt-2"></div>
+                 <div>
+                   <p className="text-[10px] font-black text-slate-400 tracking-[0.2em] mb-2 uppercase">SYSTEM LOAD</p>
+                   <p className="font-mono text-3xl font-black text-red-600 leading-none tracking-tighter">HIGH</p>
+                 </div>
+              </div>
+
+              <div className="flex gap-4 pointer-events-auto">
+                 <div className="bg-white/95 backdrop-blur-xl border border-slate-200 px-6 py-4 rounded-2xl shadow-xl flex items-center gap-6">
+                    <div className="text-center">
+                      <p className="text-[9px] font-black text-slate-400 mb-1 uppercase">ICU BEDS</p>
+                      <p className="font-mono text-xl font-black text-red-600">{stats.icu}</p>
                     </div>
-                  ))}
-                </div>
+                    <div className="w-px h-8 bg-slate-200"></div>
+                    <div className="text-center">
+                      <p className="text-[9px] font-black text-slate-400 mb-1 uppercase">ER UNITS</p>
+                      <p className="font-mono text-xl font-black text-slate-900">{stats.er}</p>
+                    </div>
+                 </div>
+                 <button className="bg-red-600 text-white font-black px-8 rounded-2xl shadow-lg border border-red-500 text-xs tracking-widest uppercase italic">DEPLOY RESPONSE</button>
               </div>
-
-              {/* Actions */}
-              <div style={{ display:"flex", gap:10 }}>
-                <button className="btn btn-accept" style={{ flex:1 }} onClick={() => handleAccept(active)} disabled={accepted[active.id]}>
-                  {accepted[active.id] ? "✓ Accepted" : "✅ Accept Case"}
-                </button>
-                <button className="btn btn-assign" onClick={() => alert("Assign doctor feature")}>👨‍⚕️ Assign</button>
-                <button className="btn btn-escalate" onClick={() => { setBeds(b=>({...b,icu_occ:Math.min(b.icu_total,b.icu_occ+1)})); alert("Escalated to ICU") }}>🚨 ICU</button>
-              </div>
-            </div>
-          ) : (
-            <div style={{ height:"100%", display:"flex", alignItems:"center", justifyContent:"center", color:"#607D8B" }}>
-              <div style={{ textAlign:"center" }}>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#607D8B" strokeWidth="1" style={{ marginBottom:12 }}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                <p>Select an alert from the feed</p>
-              </div>
-            </div>
-          )}
+           </div>
         </div>
 
-        {/* RIGHT — Map + Resources */}
-        <div style={{ background:"#0A1628", borderLeft:"1px solid #1A3A5C", display:"flex", flexDirection:"column", overflow:"hidden" }}>
-          {/* Mini Map */}
-          <div style={{ height:"45%", background:"#030810", borderBottom:"1px solid #1A3A5C", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
-            <svg width="100%" height="100%" style={{ position:"absolute", inset:0, opacity:0.1 }}>
-              {[...Array(8)].map((_,i)=><line key={`h${i}`} x1="0" y1={i*40} x2="100%" y2={i*40} stroke="#00BCD4" strokeWidth="0.5"/>)}
-              {[...Array(8)].map((_,i)=><line key={`v${i}`} x1={i*40} y1="0" x2={i*40} y2="100%" stroke="#00BCD4" strokeWidth="0.5"/>)}
-            </svg>
-            {/* Patient dot animated */}
-            <div style={{ position:"absolute", bottom:"30%", left:"35%", width:14, height:14, borderRadius:"50%", background:"#2979FF", boxShadow:"0 0 0 6px rgba(41,121,255,0.2)", transition:"bottom 0.5s" }} />
-            {/* Hospital */}
-            <div style={{ position:"absolute", top:"25%", right:"20%", textAlign:"center" }}>
-              <div style={{ background:"#FF3B30", borderRadius:6, padding:"2px 6px", fontSize:10, color:"#fff", fontWeight:700, marginBottom:2 }}>🏥 Apollo</div>
-              <div style={{ width:2, height:10, background:"#FF3B30", margin:"0 auto" }} />
-            </div>
-            <div style={{ position:"absolute", top:8, left:10, background:"rgba(0,0,0,0.6)", borderRadius:6, padding:"3px 8px", border:"1px solid rgba(0,188,212,0.3)" }}>
-              <span className="mono" style={{ fontSize:10, color:"#00BCD4" }}>LIVE MAP</span>
-            </div>
-            {/* Route */}
-            <svg style={{ position:"absolute", inset:0, pointerEvents:"none" }} width="100%" height="100%">
-              <path d="M 80 200 Q 150 120 230 80" fill="none" stroke="#00E676" strokeWidth="2" strokeDasharray="6 3"/>
-            </svg>
-            {active && <p style={{ fontSize:10, color:"#607D8B", zIndex:1 }}>{active.name} — tracking active</p>}
-          </div>
-
-          {/* Resource Status */}
-          <div style={{ flex:1, overflowY:"auto", padding:14 }}>
-            <p style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", color:"#607D8B", marginBottom:12 }}>RESOURCE STATUS</p>
-
-            {[["Beds", beds.occupied, beds.total, bedColor, bedPct],
-              ["ICU", beds.icu_occ, beds.icu_total, icuColor, icuPct]].map(([label, occ, total, color, pct]) => (
-              <div key={label} style={{ marginBottom:12 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                  <span style={{ fontSize:12, color:"#607D8B" }}>{label}</span>
-                  <span className="mono" style={{ fontSize:12, color }}>{total-occ} free / {total}</span>
-                </div>
-                <div className="bar"><div className="bar-fill" style={{ width:`${pct}%`, background:color }} /></div>
-                {pct > 70 && <p style={{ fontSize:10, color:"#FF3B30", marginTop:3 }}>⚠️ Approaching capacity</p>}
-              </div>
-            ))}
-
-            {[["Emergency Bay","OPEN","#00E676"],["OR","1 in use","#FFB300"],["Trauma Bay","OPEN","#00E676"]].map(([k,v,c])=>(
-              <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid #1A3A5C" }}>
-                <span style={{ fontSize:12, color:"#607D8B" }}>{k}</span>
-                <span style={{ fontSize:12, color:c, fontWeight:600 }}>{v}</span>
-              </div>
-            ))}
-
-            <div style={{ marginTop:12 }}>
-              <p style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", color:"#607D8B", marginBottom:8 }}>STAFF ON DUTY</p>
-              {[["Doctors","4"],["Nurses","12"],["Paramedics","6"]].map(([k,v])=>(
-                <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"5px 0" }}>
-                  <span style={{ fontSize:12, color:"#607D8B" }}>{k}</span>
-                  <span className="mono" style={{ fontSize:12, color:"#fff" }}>{v}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Quick Stats */}
-            <div style={{ marginTop:14, display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-              {[["Today's Cases","12"],["Resolved","9"],["Avg Wait","6 min"],["Critical","3"]].map(([k,v])=>(
-                <div key={k} style={{ background:"#0F1F3D", borderRadius:10, padding:10, textAlign:"center" }}>
-                  <p style={{ fontSize:18, fontWeight:700, fontFamily:"IBM Plex Mono", color:"#00BCD4" }}>{v}</p>
-                  <p style={{ fontSize:10, color:"#607D8B", marginTop:2 }}>{k}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* Live Map */}
+        <div className="flex-1 bg-[#E2E8F0]">
+           <LiveMap activeAlert={activeAlert} />
         </div>
-      </div>
-    </div>
-  )
-}
 
-function EtaCountdown({ seconds }) {
-  const [s, setS] = useState(seconds)
-  useEffect(() => { const t = setInterval(()=>setS(x=>Math.max(0,x-1)),1000); return ()=>clearInterval(t) }, [])
-  const m = Math.floor(s/60), sec = s%60
-  return (
-    <div style={{ textAlign:"right" }}>
-      <p style={{ fontSize:11, color:"#607D8B", marginBottom:2 }}>ETA</p>
-      <p className="mono" style={{ fontSize:32, fontWeight:700, color: s<120?"#FF3B30":s<300?"#FFB300":"#00E676", lineHeight:1 }}>
-        {String(m).padStart(2,"0")}:{String(sec).padStart(2,"0")}
-      </p>
+        {/* Global Registry Bar */}
+        <footer className="bg-white h-24 border-t px-8 flex items-center justify-between z-10 shadow-2xl">
+           <div className="flex items-center gap-10">
+              <div className="flex items-center gap-3">
+                 <div className="w-3 h-3 bg-red-600 rounded-full animate-ping"></div>
+                 <p className="font-mono text-xs font-black text-slate-900 uppercase">Live Handoff Active</p>
+              </div>
+              <div className="flex gap-16">
+                 <div>
+                   <p className="text-[9px] font-black text-slate-400 mb-1 uppercase">LAST SYNC</p>
+                   <p className="font-mono text-xs font-bold text-slate-700">0.02ms ago</p>
+                 </div>
+                 <div>
+                   <p className="text-[9px] font-black text-slate-400 mb-1 uppercase">NETWORK STATUS</p>
+                   <p className="font-mono text-xs font-bold text-green-600">SECURE</p>
+                 </div>
+              </div>
+           </div>
+           
+           <div className="flex gap-3">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
+                </div>
+              ))}
+           </div>
+        </footer>
+      </main>
+
+      {/* Right Sidebar - Clinical Telemetry */}
+      <aside className="w-96 panel border-l flex flex-col z-20">
+         <div className="p-8 border-b">
+           <p className="font-mono text-[10px] font-black text-red-600 tracking-[0.4em] mb-4 uppercase">PATIENT TELEMETRY</p>
+           <h2 className="font-syne italic text-3xl font-black text-slate-900 tracking-tighter uppercase">{activeAlert?.patient || 'NO ACTIVE CASE'}</h2>
+           <p className="text-slate-400 font-bold text-sm uppercase mt-1">ID: P-02931-HQ | {activeAlert?.age} YRS</p>
+         </div>
+
+         <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
+            <div className="bg-red-50 border border-red-100 rounded-3xl p-6 mb-8 relative overflow-hidden">
+               <div className="absolute top-0 right-0 p-4">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-red-500 animate-pulse"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+               </div>
+               <p className="text-[10px] font-black text-red-600 mb-4 uppercase tracking-widest">CRITICAL DIAGNOSTIC</p>
+               <h3 className="font-syne text-xl font-bold text-slate-900 mb-2 uppercase">{activeAlert?.condition}</h3>
+               <p className="text-sm text-slate-600 font-medium leading-relaxed">System suspects Acute Coronary Syndrome. Redirecting to Cardiac Specialist Wing @ SVIMS Center.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6 mb-8">
+               <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                  <p className="text-[9px] font-black text-slate-400 mb-2 uppercase">HEART RATE</p>
+                  <p className="font-mono text-3xl font-black text-red-600 leading-none tracking-tighter">114 <span className="text-[10px] font-bold text-slate-400">BPM</span></p>
+               </div>
+               <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                  <p className="text-[9px] font-black text-slate-400 mb-2 uppercase">SPO2LEVEL</p>
+                  <p className="font-mono text-3xl font-black text-slate-900 leading-none tracking-tighter">92 <span className="text-[10px] font-bold text-slate-400">%</span></p>
+               </div>
+               <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                  <p className="text-[9px] font-black text-slate-400 mb-2 uppercase">SYSTOLIC</p>
+                  <p className="font-mono text-3xl font-black text-slate-900 leading-none tracking-tighter">148 <span className="text-[10px] font-bold text-slate-400">HG</span></p>
+               </div>
+               <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                  <p className="text-[9px] font-black text-slate-400 mb-2 uppercase">GCS SCORE</p>
+                  <p className="font-mono text-3xl font-black text-amber-500 leading-none tracking-tighter">E3 <span className="text-[10px] font-bold text-slate-400">MED</span></p>
+               </div>
+            </div>
+
+            <div className="border-t pt-8">
+               <p className="font-mono text-[10px] font-black text-slate-400 tracking-widest mb-6 uppercase">INCIDENT TIMELINE</p>
+               <div className="space-y-6">
+                 {[
+                   { time: '14:24:02', msg: 'System Triggered - Voice Input received' },
+                   { time: '14:24:15', msg: 'AI Diagnostic complete - CRITICAL match' },
+                   { time: '14:25:30', msg: 'Hospital selected - Handover initiated' },
+                 ].map((log, i) => (
+                   <div key={i} className="flex gap-4">
+                     <p className="font-mono text-[10px] font-black text-slate-300 w-16">{log.time}</p>
+                     <p className="text-xs font-bold text-slate-600">{log.msg}</p>
+                   </div>
+                 ))}
+               </div>
+            </div>
+         </div>
+
+         <div className="p-8 border-t bg-slate-50">
+            <button className="w-full h-14 bg-slate-900 text-white font-black rounded-2xl shadow-lg border border-slate-800 text-xs tracking-widest uppercase italic hover:bg-slate-800 transition-colors">INITIALIZE HANDOVER RECORD</button>
+         </div>
+      </aside>
     </div>
   )
 }

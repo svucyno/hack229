@@ -50,7 +50,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%", maxWidth: 430, margin: "0 auto", overflow: "hidden", background: "#0D0D0D", display: "flex", flexDirection: "column" }}>
+    <div style={{ position: "relative", width: "100%", height: "100%", maxWidth: 430, margin: "0 auto", overflow: "hidden", background: "#FFFFFF", display: "flex", flexDirection: "column" }}>
       {/* FEATURE 13: LANGUAGE BANNER */}
       {language !== "en" && screen !== "home" && (
         <div style={{ background: "#FFF9C4", padding: "6px 12px", textAlign: "center", fontSize: 11, fontWeight: 600, color: "#827717", zIndex: 100 }}>

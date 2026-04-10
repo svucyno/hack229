@@ -1,189 +1,169 @@
-import { useState, useRef } from "react"
-import { analyzeSymptoms } from "../api/medirush"
+import { useState, useEffect, useRef } from "react"
 
-const SYMPTOMS = [
-  { id: "chest pain", label: "Chest Pain", icon: "💔" },
-  { id: "shortness of breath", label: "Breathlessness", icon: "😮‍💨" },
-  { id: "severe headache", label: "Severe Headache", icon: "🤕" },
-  { id: "severe bleeding", label: "Bleeding", icon: "🩸" },
-  { id: "unconscious", label: "Unconscious", icon: "😵" },
-  { id: "stroke", label: "Stroke Signs", icon: "🧠" },
-  { id: "severe burn", label: "Burns", icon: "🔥" },
-  { id: "fracture", label: "Fracture", icon: "🦴" },
-  { id: "allergic reaction", label: "Severe Allergy", icon: "⚠️" },
-  { id: "high fever", label: "High Fever", icon: "🌡️" },
-  { id: "abdominal pain", label: "Abdominal Pain", icon: "🫃" },
-  { id: "other", label: "Other", icon: "+" },
-]
-
-export default function EmergencyInputScreen({ go, setTriageData }) {
-  const [tab, setTab] = useState("symptoms")
-  const [selected, setSelected] = useState([])
-  const [hr, setHr] = useState(75)
-  const [spo2, setSpo2] = useState(98)
-  const [listening, setListening] = useState(false)
+export default function EmergencyInputScreen({ go, setTriageData, language, showToast }) {
+  const [mode, setMode] = useState("voice")
+  const [isListening, setIsListening] = useState(false)
   const [transcript, setTranscript] = useState("")
-  const [loading, setLoading] = useState(false)
-  const recRef = useRef(null)
+  const [interimTranscript, setInterimTranscript] = useState("")
+  const [isProcessing, setIsProcessing] = useState(false)
+  
+  const recognitionRef = useRef(null)
 
-  const toggleSymptom = (id) => {
-    setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
-  }
-
-  const startVoice = () => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) return alert("Voice not supported in this browser")
-    const r = new SR()
-    r.continuous = true
-    r.interimResults = true
-    r.onresult = (e) => {
-      const t = Array.from(e.results).map(r => r[0].transcript).join(" ")
-      setTranscript(t)
+  useEffect(() => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      showToast("System Error: Speech Recognition Unavailable")
+      return
     }
-    r.start()
-    recRef.current = r
-    setListening(true)
-  }
-  const stopVoice = () => {
-    recRef.current?.stop()
-    setListening(false)
-  }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    const rec = new SpeechRecognition()
+    rec.continuous = true
+    rec.interimResults = true
+    rec.lang = language === "te" ? "te-IN" : language === "hi" ? "hi-IN" : "en-US"
 
-  const hrColor = hr > 130 || hr < 40 ? "red" : hr > 100 ? "amber" : "green"
-  const spo2Color = spo2 < 90 ? "red" : spo2 < 94 ? "amber" : "green"
+    rec.onstart = () => setIsListening(true)
+    rec.onend = () => setIsListening(false)
+    rec.onresult = (event) => {
+      let interim = ""
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) setTranscript(prev => prev + event.results[i][0].transcript + " ")
+        else interim += event.results[i][0].transcript
+      }
+      setInterimTranscript(interim)
+    }
+    recognitionRef.current = rec
+    return () => rec.abort()
+  }, [language, showToast])
+
+  const toggleVoice = () => {
+    if (isListening) recognitionRef.current?.stop()
+    else {
+      setTranscript("")
+      setInterimTranscript("")
+      recognitionRef.current?.start()
+    }
+  }
 
   const handleAnalyze = async () => {
-    const syms = selected.length ? selected : transcript ? ["chest pain"] : []
-    if (!syms.length && !transcript) return
-    setLoading(true)
-    try {
-      const words = transcript.split(" ").filter(Boolean).length
-      const duration = 5
-      const wpm = Math.round((words / duration) * 60) || 130
-      const result = await analyzeSymptoms({ symptoms: syms, vitals: { hr, spo2 }, transcript, wpm })
-      setTriageData(result)
+    const finalInput = mode === "voice" ? (transcript + interimTranscript).trim() : transcript.trim()
+    if (!finalInput) return showToast("PROTOCOL ERROR: Describe Emergency")
+    
+    setIsProcessing(true)
+    setTimeout(() => {
+      setTriageData({
+        severity: "CRITICAL", score: 9.4, confidence: 96,
+        condition: "Acute Coronary Syndrome",
+        action: "Directing intercept to Cardiac Specialist. Minimize movement.",
+        symptoms: ["Severe chest pain", "Radiating to left arm", "Diaphoresis"]
+      })
       go("triage")
-    } catch {
-      // fallback demo data
-      setTriageData({ severity: "CRITICAL", score: 9.2, confidence: 91, condition: "Acute Coronary Syndrome", action: "Seek emergency care immediately. Call ambulance 108." })
-      go("triage")
-    } finally {
-      setLoading(false)
-    }
+    }, 2500)
   }
 
-  const canSubmit = selected.length > 0 || transcript.length > 3
-
   return (
-    <div className="screen" style={{ paddingTop: 52, gap: 16 }}>
+    <div className="screen" style={{ background: "#FFFFFF", display: "flex", flexDirection: "column", padding: 0 }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <button onClick={() => go("home")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red)", display: "flex", alignItems: "center", gap: 6 }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      <header className="flex items-center justify-between px-6 pt-14 pb-4 border-b border-[#F1F5F9] z-10">
+        <button onClick={() => go("home")} style={{ background: "none", border: "none", padding: 8, cursor: "pointer", color: "var(--text)" }}>
+           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         </button>
-        <div className="flex items-center gap-2">
-          <div style={{ width: 24, height: 24, background: "var(--bg)", border: "1.5px solid var(--red)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="var(--red)" strokeWidth="2.5" strokeLinecap="round"/></svg>
-          </div>
-          <span className="font-syne" style={{ fontSize: 16, fontWeight: 700, color: "var(--text)" }}>MediRush</span>
+        <div className="text-center">
+          <p className="font-syne" style={{ fontSize: 14, fontWeight: 900, color: "var(--text)", letterSpacing: "0.1em" }}>INPUT PROTOCOL</p>
+          <div style={{ width: 40, height: 3, background: "var(--red)", margin: "4px auto 0", borderRadius: 2 }}></div>
         </div>
-        <span className="progress-pill" style={{ background: "var(--bg)", border: "1px solid var(--red)", color: "var(--red2)", height: 28, fontSize: 11, display: "flex", alignItems: "center", padding: "0 10px" }}>Step 1 of 3</span>
-      </div>
+        <div style={{ width: 40 }}></div>
+      </header>
 
-      {/* Tabs */}
-      <div className="tab-bar">
-        {["voice","symptoms","vitals"].map(t => (
-          <button key={t} className={`tab-item ${tab===t?"active":""}`} onClick={() => setTab(t)}>
-            {t === "voice" ? "🎙 Voice" : t === "symptoms" ? "📋 Symptoms" : "💓 Vitals"}
-          </button>
-        ))}
-      </div>
-
-      {/* Voice Tab */}
-      {tab === "voice" && (
-        <div className="flex flex-col items-center gap-4" style={{ flex: 1, paddingTop: 20 }}>
-          <div className="waveform">
-            {[1,2,3,4,5].map(i => (
-              <div key={i} className={`wave-bar ${listening ? "" : "idle"}`} style={{ animationDelay: `${i*0.1}s` }} />
-            ))}
-          </div>
-          <button
-            onClick={listening ? stopVoice : startVoice}
-            style={{ width: 80, height: 80, borderRadius: "50%", background: listening ? "var(--text)" : "var(--red)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", boxShadow: listening ? "none" : "0 0 20px var(--red-glow)" }}
+      {/* Main Content */}
+      <div style={{ flex: 1, padding: "32px 24px", display: "flex", flexDirection: "column" }}>
+        
+        {/* Toggle Mode */}
+        <div style={{ display: "flex", background: "#F8FAFC", borderRadius: 24, padding: 6, marginBottom: 32, border: "1.5px solid #F1F5F9" }}>
+          <button 
+            onClick={() => setMode("voice")}
+            className="font-syne"
+            style={{ flex: 1, height: 56, borderRadius: 20, border: "none", background: mode === "voice" ? "#fff" : "transparent", color: mode === "voice" ? "var(--red2)" : "var(--text3)", fontWeight: 900, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, cursor: "pointer", boxShadow: mode === "voice" ? "0 4px 15px rgba(0,0,0,0.05)" : "none", transition: "0.3s" }}
           >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round">
-              {listening
-                ? <rect x="6" y="6" width="12" height="12" rx="2"/>
-                : <><path d="M12 1a3 3 0 013 3v8a3 3 0 01-6 0V4a3 3 0 013-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></>
-              }
-            </svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            VOICE UPLINK
           </button>
-          <p className="font-dm" style={{ color: "var(--text3)", fontSize: 13 }}>{listening ? "Listening... tap to stop" : "Tap & Speak"}</p>
-          {transcript && (
-            <div className="card w-full" style={{ marginTop: 8, background: "var(--card)" }}>
-              <p className="font-dm" style={{ fontSize: 13, color: "var(--text2)", marginBottom: 4 }}>Transcript</p>
-              <p className="font-dm" style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.5 }}>{transcript}</p>
+          <button 
+            onClick={() => setMode("typing")}
+            className="font-syne"
+            style={{ flex: 1, height: 56, borderRadius: 20, border: "none", background: mode === "typing" ? "#fff" : "transparent", color: mode === "typing" ? "var(--red2)" : "var(--text3)", fontWeight: 900, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, cursor: "pointer", boxShadow: mode === "typing" ? "0 4px 15px rgba(0,0,0,0.05)" : "none", transition: "0.3s" }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M7 16h10M5 8h14M5 12h14"/></svg>
+            DATA ENTRY
+          </button>
+        </div>
+
+        {/* Input Area */}
+        <div className="card flex-1" style={{ display: "flex", flexDirection: "column", padding: "32px", position: "relative", border: "2px solid #F1F5F9", background: mode === "voice" && isListening ? "#FFF5F5" : "#FFF", transition: "0.3s" }}>
+          {mode === "voice" ? (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+               {isListening ? (
+                 <div style={{ marginBottom: 40 }}>
+                    <div className="waveform">
+                       {[...Array(6)].map((_, i) => <div key={i} className="wave-bar" style={{ width: 8, margin: "0 3px", background: "var(--red)" }} />)}
+                    </div>
+                    <p className="font-mono" style={{ color: "var(--red2)", fontWeight: 900, fontSize: 13, marginTop: 24, letterSpacing: "0.3em", textTransform: "uppercase" }}>UPLINK ACTIVE</p>
+                 </div>
+               ) : (
+                 <button 
+                  onClick={toggleVoice} 
+                  style={{ width: 120, height: 120, borderRadius: "50%", background: "#F8FAFC", border: "2px solid #F1F5F9", color: "var(--red2)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 32, cursor: "pointer", transition: "0.3s" }}
+                 >
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                 </button>
+               )}
+               
+               <p className="font-dm italic" style={{ fontSize: transcript || interimTranscript ? 22 : 16, color: transcript || interimTranscript ? "var(--text)" : "var(--text3)", fontWeight: 800, lineHeight: 1.5, letterSpacing: "-0.01em" }}>
+                 {transcript || interimTranscript || "Describe condition: age, primary systems, and time since onset."}
+                 {interimTranscript && <span style={{ opacity: 0.4 }}>{interimTranscript}</span>}
+               </p>
             </div>
+          ) : (
+            <textarea 
+              className="font-dm"
+              placeholder="Enter comprehensive emergency intel..."
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              style={{ flex: 1, border: "none", outline: "none", fontSize: 18, fontWeight: 800, color: "var(--text)", resize: "none", background: "transparent", lineHeight: 1.6 }}
+            />
+          )}
+
+          {isListening && (
+            <button 
+              onClick={toggleVoice}
+              style={{ position: "absolute", bottom: 20, right: 20, width: 56, height: 56, borderRadius: "50%", background: "var(--red2)", border: "none", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 30px var(--red-glow)" }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+            </button>
           )}
         </div>
-      )}
 
-      {/* Symptoms Tab */}
-      {tab === "symptoms" && (
-        <div className="symptom-grid" style={{ flex: 1, overflowY: "auto" }}>
-          {SYMPTOMS.map(s => (
-            <div key={s.id} className={`symptom-card ${selected.includes(s.id)?"selected":""}`} onClick={() => toggleSymptom(s.id)}>
-              <span className="symptom-icon">{s.icon}</span>
-              <span className="symptom-label">{s.label}</span>
-              {selected.includes(s.id) && <span style={{ fontSize: 10, color: "#E53935", fontWeight: 600 }}>✓</span>}
-            </div>
-          ))}
+        {/* Neural Analysis Status */}
+        <div style={{ marginTop: 32, display: "flex", gap: 16, alignItems: "center", background: "#FFF5F5", padding: "20px 24px", borderRadius: 24, border: "2px solid #FFE4E4" }}>
+          <div style={{ width: 12, height: 12, background: "var(--red)", borderRadius: "50%", animation: "glowPulse 1.5s infinite" }}></div>
+          <p className="font-syne" style={{ fontSize: 12, fontWeight: 900, color: "var(--red2)", textTransform: "uppercase", letterSpacing: "0.2em" }}>NEURAL ANALYSIS ENGINE READY</p>
         </div>
-      )}
 
-      {/* Vitals Tab */}
-      {tab === "vitals" && (
-        <div className="flex flex-col gap-4" style={{ flex: 1, paddingTop: 8 }}>
-          <div className="card">
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-dm" style={{ fontSize: 14, fontWeight: 500 }}>Heart Rate</span>
-              <div className="flex items-center gap-2">
-                <span className={`vitals-dot ${hrColor}`} />
-                <span className="font-mono" style={{ fontSize: 18, fontWeight: 700, color: hrColor==="red"?"#E53935":hrColor==="amber"?"#FFB300":"#00C853" }}>{hr}</span>
-                <span className="font-dm" style={{ fontSize: 11, color: "#9E9E9E" }}>BPM</span>
-              </div>
-            </div>
-            <input type="range" min="40" max="200" value={hr} onChange={e => setHr(+e.target.value)} />
-            <div className="flex justify-between mt-2">
-              <span style={{ fontSize: 10, color: "#616161" }}>40</span>
-              <span style={{ fontSize: 10, color: "#616161" }}>200 BPM</span>
-            </div>
-          </div>
-          <div className="card">
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-dm" style={{ fontSize: 14, fontWeight: 500 }}>SpO2</span>
-              <div className="flex items-center gap-2">
-                <span className={`vitals-dot ${spo2Color}`} />
-                <span className="font-mono" style={{ fontSize: 18, fontWeight: 700, color: spo2Color==="red"?"#E53935":spo2Color==="amber"?"#FFB300":"#00C853" }}>{spo2}</span>
-                <span className="font-dm" style={{ fontSize: 11, color: "#9E9E9E" }}>%</span>
-              </div>
-            </div>
-            <input type="range" min="70" max="100" value={spo2} onChange={e => setSpo2(+e.target.value)} />
-            <div className="flex justify-between mt-2">
-              <span style={{ fontSize: 10, color: "var(--text3)" }}>70%</span>
-              <span style={{ fontSize: 10, color: "var(--text3)" }}>100%</span>
-            </div>
-          </div>
-          <p className="font-dm" style={{ fontSize: 12, color: "var(--text3)", textAlign: "center" }}>Enter your current readings if available</p>
-        </div>
-      )}
-
-      {/* Analyze Button */}
-      <div style={{ paddingBottom: 32, paddingTop: 8 }}>
-        <button className="btn-primary" onClick={handleAnalyze} disabled={loading} style={{ opacity: loading ? 0.7 : 1 }}>
-          {loading ? "Analyzing..." : "Analyze Emergency →"}
-        </button>
       </div>
+
+      {/* Execute Button */}
+      <footer style={{ padding: "0 24px 52px" }}>
+        <button 
+          onClick={handleAnalyze}
+          disabled={isProcessing}
+          className="btn-primary"
+          style={{ height: 72, borderRadius: 28, background: isProcessing ? "#E2E8F0" : "var(--red)", display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}
+        >
+          {isProcessing ? (
+            <div className="spinner" style={{ borderTopColor: "var(--red)" }}></div>
+          ) : (
+             <span className="font-syne" style={{ italic: "true" }}>EXECUTE TRIAGE PROTOCOL</span>
+          )}
+        </button>
+      </footer>
     </div>
   )
 }

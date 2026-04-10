@@ -1,183 +1,114 @@
-import { useEffect, useState } from "react"
-import { getHospitalRecommendations, notifyHospital } from "../api/medirush"
+import { useState, useEffect } from "react"
 
-const DEMO_HOSPITALS = [
-  { id:"h1", name:"Apollo Hospitals Tirupati", distance_km:2.4, eta_seconds:480, beds_available:22, beds_total:200, specializations:["Cardiology","Neurology","Trauma"], emergency_bay:true, type:"Private", composite_score:0.92, lat:13.6213, lng:79.4091 },
-  { id:"h2", name:"SVIMS", distance_km:1.8, eta_seconds:360, beds_available:45, beds_total:850, specializations:["Neurology","Cardiology","Oncology"], emergency_bay:true, type:"Government", composite_score:0.85, lat:13.6372, lng:79.4200 },
-  { id:"h3", name:"Ruia Government Hospital", distance_km:3.1, eta_seconds:600, beds_available:30, beds_total:400, specializations:["General Medicine","Trauma"], emergency_bay:true, type:"Government", composite_score:0.72, lat:13.6356, lng:79.4105 },
+const DEMO = [
+  { id: "h1", name: "Apollo Hospitals", distance: "2.4 km", time: "12 min", wait: "5 min", beds: 12, icu: 3, rating: 4.8, specialization: "CARDIAC SPECIALTY", match: 98 },
+  { id: "h2", name: "SVIMS University", distance: "1.8 km", time: "15 min", wait: "18 min", beds: 45, icu: 12, rating: 4.5, specialization: "MULTI-TRAUMA", match: 85 },
+  { id: "h3", name: "Ruia Govt Hospital", distance: "3.1 km", time: "22 min", wait: "45 min", beds: 8, icu: 0, rating: 3.9, specialization: "GENERAL SURGERY", match: 62 },
 ]
 
-export default function HospitalSelectScreen({ go, triageData, setSelectedHospital, setToken, showToast }) {
-  const [hospitals, setHospitals] = useState([])
+export default function HospitalSelectScreen({ go, setSelectedHospital, setToken, triageData }) {
   const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState(null)
-  const [filter, setFilter] = useState("All")
-  const [selecting, setSelecting] = useState(null)
+  const [list, setList] = useState([])
+  const [active, setActive] = useState(null)
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        // Promise-based geolocation with timeout
-        const getPos = () => new Promise((res, rej) => {
-          navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 });
-        });
+    setTimeout(() => {
+      setList(DEMO)
+      setLoading(false)
+      setActive(DEMO[0])
+    }, 1500)
+  }, [])
 
-        let pos;
-        try {
-          pos = await getPos();
-        } catch (e) {
-          console.warn("Geolocation failed or timed out", e);
-        }
-
-        let data = [];
-        if (pos) {
-          data = await getHospitalRecommendations({
-            lat: pos.coords.latitude, lng: pos.coords.longitude,
-            condition: triageData?.condition || "", severity: triageData?.severity || "CRITICAL"
-          });
-        }
-        
-        setHospitals(data && data.length > 0 ? data : DEMO_HOSPITALS);
-      } catch (err) {
-        console.error("Failed to load hospitals", err);
-        setHospitals(DEMO_HOSPITALS);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [triageData]);
-
-  const BADGES = ["⭐ Best Match", "⚡ Fastest", ""]
-  const FILTERS = ["All", "Nearest", "Best Match", "Beds Available"]
-
-  const filtered = [...hospitals].sort((a,b) => {
-    if (filter === "Nearest") return a.distance_km - b.distance_km
-    if (filter === "Best Match") return b.composite_score - a.composite_score
-    if (filter === "Beds Available") return b.beds_available - a.beds_available
-    return 0
-  })
-
-  const handleSelect = async (h) => {
-    setSelecting(h.id)
-    try {
-      const res = await notifyHospital({
-        hospital_id: h.id,
-        patient_data: { name: "Ravi Kumar", age: 34 },
-        condition: triageData?.condition || "Emergency",
-        severity: triageData?.severity || "CRITICAL",
-        priority_score: triageData?.score || 9.2,
-        eta_seconds: h.eta_seconds,
-      })
-      setToken(res.token || "A3F9-72XK")
-      setSelectedHospital(h)
-      showToast(`🏥 ${h.name} Notified`)
-      setTimeout(() => go("navigation"), 800)
-    } catch {
-      setToken("A3F9-72XK")
-      setSelectedHospital(h)
-      showToast(`🏥 ${h.name} Notified`)
-      setTimeout(() => go("navigation"), 800)
-    }
-    setSelecting(null)
+  const handleSelect = (h) => {
+    setSelectedHospital(h)
+    setToken(`MED-${Math.random().toString(36).substr(2, 6).toUpperCase()}`)
+    go("navigation")
   }
 
-  const etaMin = (s) => `${Math.floor(s/60)} min`
+  if (loading) {
+    return (
+      <div className="screen flex items-center justify-center bg-[#FFFFFF]">
+        <div style={{ textAlign: "center" }}>
+          <div className="spinner mb-8" style={{ width: 60, height: 60, borderWidth: 4 }}></div>
+          <p className="font-syne italic" style={{ color: "var(--red2)", fontSize: 13, fontWeight: 900, letterSpacing: "0.25em", textTransform: "uppercase" }}>Intercepting Facility Uplinks</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="screen" style={{ paddingTop: 52, gap: 14 }}>
-      <div className="flex items-center justify-between mb-2">
-        <button onClick={() => go("triage")} style={{ background:"none", border:"none", cursor:"pointer", color:"#E53935", display:"flex", alignItems:"center" }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-        </button>
-        <div>
-          <h1 className="font-syne" style={{ fontSize: 18, fontWeight: 800, textAlign:"center", color:"var(--text)" }}>Best Hospitals For You</h1>
-          <p className="font-dm" style={{ fontSize: 11, color:"var(--text2)", textAlign:"center" }}>Ranked by specialty match, availability & distance</p>
-        </div>
-        <div style={{ width: 20 }} />
-      </div>
+    <div className="screen" style={{ background: "#FFFFFF", display: "flex", flexDirection: "column", padding: 0 }}>
+      {/* Header */}
+      <header style={{ padding: "58px 24px 24px", borderBottom: "1.5px solid #F1F5F9", background: "#FFFFFF", position: "relative", zIndex: 10 }}>
+        <p className="font-mono" style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.3em", color: "var(--red2)", marginBottom: 12, textTransform: "uppercase" }}>OPERATIONAL RESOURCE ALLOCATION</p>
+        <h1 className="font-syne italic" style={{ fontSize: 32, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.04em" }}>SELECT <span style={{ color: "var(--red)" }}>INTERCEPT</span></h1>
+      </header>
 
-      {/* Filters */}
-      <div className="chip-row">
-        {FILTERS.map(f => (
-          <button key={f} className={`chip ${filter===f?"active":""}`} onClick={() => setFilter(f)}>{f}</button>
+      <div style={{ flex: 1, overflowY: "auto", padding: "28px 24px", display: "grid", gap: 18 }}>
+        {list.map((h) => (
+          <div 
+            key={h.id}
+            onClick={() => setActive(h)}
+            style={{ 
+              background: active?.id === h.id ? "#FFF5F5" : "#FFFFFF",
+              border: active?.id === h.id ? "3px solid var(--red)" : "1.5px solid #F1F5F9",
+              borderRadius: 32, padding: "28px", transition: "0.3s cubic-bezier(0.16, 1, 0.3, 1)", cursor: "pointer", position: "relative",
+              boxShadow: active?.id === h.id ? "0 15px 40px rgba(255, 49, 49, 0.12)" : "none"
+            }}
+          >
+            {active?.id === h.id && (
+              <div style={{ position: "absolute", top: -12, right: 28, background: "var(--red)", color: "#fff", fontSize: 10, fontWeight: 900, padding: "5px 18px", borderRadius: 20, letterSpacing: "0.1em" }}>
+                 OPTIMAL MATCH {h.match}%
+              </div>
+            )}
+            
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+              <div style={{ flex: 1 }}>
+                <p className="font-syne" style={{ fontSize: 21, fontWeight: 900, color: "var(--text)", marginBottom: 6 }}>{h.name}</p>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                   <div style={{ width: 10, height: 10, background: h.match > 90 ? "var(--green)" : "var(--amber)", borderRadius: "50%", boxShadow: h.match > 90 ? "0 0 10px var(--green-glow)" : "none" }}></div>
+                   <p className="font-mono" style={{ fontSize: 12, color: "var(--text2)", fontWeight: 800 }}>{h.specialization}</p>
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <p className="font-mono" style={{ fontSize: 26, fontWeight: 900, color: "var(--text)", leading: 1 }}>{h.time}</p>
+                <p style={{ fontSize: 10, color: "var(--red2)", fontWeight: 900, letterSpacing: "0.1em" }}>EST. ETA</p>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+               <div style={{ background: "#fff", padding: "14px", borderRadius: 20, border: "1.5px solid #F1F5F9" }}>
+                  <p style={{ fontSize: 9, color: "var(--text3)", fontWeight: 900, marginBottom: 4, letterSpacing: "0.05em" }}>WAIT</p>
+                  <p className="font-mono" style={{ fontSize: 14, color: "var(--text)", fontWeight: 800 }}>{h.wait}</p>
+               </div>
+               <div style={{ background: "#fff", padding: "14px", borderRadius: 20, border: "1.5px solid #F1F5F9" }}>
+                  <p style={{ fontSize: 9, color: "var(--text3)", fontWeight: 900, marginBottom: 4, letterSpacing: "0.05em" }}>DIST</p>
+                  <p className="font-mono" style={{ fontSize: 14, color: "var(--text)", fontWeight: 800 }}>{h.distance}</p>
+               </div>
+               <div style={{ background: "#fff", padding: "14px", borderRadius: 20, border: "1.5px solid #F1F5F9" }}>
+                  <p style={{ fontSize: 9, color: "var(--text3)", fontWeight: 900, marginBottom: 4, letterSpacing: "0.05em" }}>ICU</p>
+                  <p className="font-mono" style={{ fontSize: 14, color: "var(--red2)", fontWeight: 900 }}>{h.icu} AVAIL</p>
+               </div>
+            </div>
+          </div>
         ))}
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center" style={{ flex:1 }}>
-          <div style={{ textAlign:"center" }}>
-            <div className="spinner" style={{ width:32, height:32, margin:"0 auto 12px" }} />
-            <p className="font-dm" style={{ color:"#9E9E9E", fontSize:13 }}>Finding best hospitals...</p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3" style={{ flex:1, overflowY:"auto", paddingBottom:32 }}>
-          {filtered.map((h,i) => (
-            <div key={h.id} className={`hospital-card ${expanded===h.id?"expanded":""}`} onClick={() => setExpanded(expanded===h.id?null:h.id)}>
-              {/* Badge */}
-              {BADGES[i] && <div style={{ marginBottom:8 }}><span className={`badge ${i===0?"badge-gold":"badge-blue"}`}>{BADGES[i]}</span></div>}
-
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-syne" style={{ fontSize:15, fontWeight:700, flex:1, marginRight:8, color:"var(--text)" }}>{h.name}</h3>
-                <span className="font-mono" style={{ fontSize:13, color:"var(--text2)" }}>{h.distance_km} km</span>
-              </div>
-
-              {/* Specs */}
-              <div className="flex gap-2 mb-3" style={{ flexWrap:"wrap" }}>
-                {h.specializations.slice(0,3).map(s => (
-                  <span key={s} style={{ fontSize:10, padding:"2px 8px", background:"var(--card2)", borderRadius:20, color:"var(--text2)" }}>{s}</span>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
-                  <span className="font-dm" style={{ fontSize:13, color:"var(--text)" }}>{h.beds_available} beds free</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                  <span className="font-mono" style={{ fontSize:13, color:"var(--green)" }}>ETA: {etaMin(h.eta_seconds)}</span>
-                </div>
-              </div>
-
-              {/* Availability Bar */}
-              <div className="mb-1">
-                <div className="flex justify-between mb-1">
-                  <span style={{ fontSize:10, color:"#9E9E9E" }}>Availability</span>
-                  <span style={{ fontSize:10, color:"#9E9E9E" }}>{Math.round((h.beds_available/h.beds_total)*100)}%</span>
-                </div>
-                <div className="avail-bar">
-                  <div className="avail-fill" style={{ width:`${(h.beds_available/h.beds_total)*100}%`, background: h.beds_available/h.beds_total > 0.5 ? "#00C853" : h.beds_available/h.beds_total > 0.25 ? "#FFB300" : "#E53935" }} />
-                </div>
-              </div>
-
-              {/* Expanded */}
-              {expanded === h.id && (
-                <div style={{ marginTop:14, borderTop:"1px solid #2C2C2C", paddingTop:14 }}>
-                  <div className="flex flex-col gap-2 mb-4">
-                    <div className="flex items-center gap-2">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9E9E9E" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                      <span className="font-dm" style={{ fontSize:12, color:"#9E9E9E" }}>Dr. Ramesh Kumar — Emergency Medicine</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span style={{ fontSize:12, color: h.emergency_bay?"#00C853":"#E53935" }}>{h.emergency_bay?"✅":"❌"} Emergency Bay</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9E9E9E" strokeWidth="2" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 8.81a19.79 19.79 0 01-3.07-8.63A2 2 0 012 .18h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg>
-                      <span className="font-dm" style={{ fontSize:12, color:"#9E9E9E" }}>{h.phone || "0877-2233333"}</span>
-                    </div>
-                  </div>
-                  <button className="btn-primary" onClick={(e) => { e.stopPropagation(); handleSelect(h) }} disabled={selecting===h.id}>
-                    {selecting===h.id ? "Notifying..." : "Select This Hospital →"}
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <footer style={{ padding: "32px 32px 58px", background: "#FFFFFF", borderTop: "1.5px solid #F1F5F9", zIndex: 10 }}>
+         <button 
+           onClick={() => active && handleSelect(active)}
+           disabled={!active}
+           className="btn-primary"
+           style={{ 
+             height: 76, borderRadius: 28, background: active ? "var(--red)" : "#F1F5F9",
+             color: active ? "#FFF" : "#94A3B8",
+             boxShadow: active ? "0 20px 50px rgba(255, 49, 49, 0.4)" : "none",
+             transition: "0.3s"
+           }}
+         >
+           <span className="font-syne italic">ESTABLISH CARE CHANNEL</span>
+         </button>
+      </footer>
     </div>
   )
 }

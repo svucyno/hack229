@@ -30,15 +30,21 @@ export default function AlertFeed({ hospitalId, onSelectPatient }) {
   }, [hospitalId, onSelectPatient]);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-white/50">
-        <h2 className="font-sans font-bold text-sm tracking-widest text-slate-500">INCOMING ALERTS</h2>
-        <span className="bg-emergency text-white text-xs font-bold px-2 py-0.5 rounded-full">{alerts.length}</span>
+    <div className="flex flex-col h-full bg-[#050505] border-r border-[#1A1A1A]">
+      <div className="p-5 border-b border-[#111] flex justify-between items-center bg-[#080808]">
+        <div>
+          <h2 className="font-syne font-black text-xs tracking-[0.2em] text-white/40 uppercase">LIVE EMERGENCY FEED</h2>
+          <p className="text-[10px] text-red-500/80 font-mono font-bold animate-pulse mt-0.5">● SECURE GATEWAY ACTIVE</p>
+        </div>
+        <span className="bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-sm shadow-[0_0_10px_rgba(220,38,38,0.4)]">{alerts.length}</span>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
         {alerts.length === 0 ? (
-          <div className="text-slate-400 font-mono text-xs text-center mt-10">No active alerts</div>
+          <div className="flex flex-col items-center justify-center h-40 opacity-20">
+            <AlertCircle size={32} className="text-white mb-2" />
+            <div className="text-white font-mono text-[10px] tracking-widest uppercase">Waiting for protocol...</div>
+          </div>
         ) : (
           alerts.map(alert => {
             const isCritical = alert.severity === 'CRITICAL';
@@ -49,27 +55,33 @@ export default function AlertFeed({ hospitalId, onSelectPatient }) {
                 key={alert.id}
                 onClick={() => onSelectPatient(alert)}
                 className={`
-                  p-3 rounded-lg cursor-pointer border-l-4 transition-all duration-200
-                  ${isCritical ? 'border-emergency bg-slate-50/50 animate-pulse-border' : 
-                    isModerate ? 'border-moderate bg-slate-50/50' : 'border-normal bg-slate-50/50'}
-                  hover:bg-slate-100 shadow-sm
+                  p-4 rounded-xl cursor-pointer border border-[#1A1A1A] transition-all duration-300 relative overflow-hidden group
+                  ${isCritical ? 'bg-red-950/20 border-red-900/50 hover:bg-red-900/30' : 
+                    isModerate ? 'bg-orange-950/10 border-orange-900/30 hover:bg-orange-900/20' : 'bg-white/[0.02] hover:bg-white/[0.05]'}
                 `}
               >
-                <div className="flex justify-between items-start mb-1">
-                  <div className="font-bold font-sans text-sm text-slate-800">{alert.patient?.name || 'Unknown Protocol'}</div>
-                  <div className="flex items-center text-slate-400 text-xs font-mono">
-                    <Clock size={12} className="mr-1" /> Just now
+                {isCritical && <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]" />}
+                
+                <div className="flex justify-between items-start mb-2">
+                  <div className="font-syne font-extrabold text-sm text-white tracking-tight group-hover:text-red-500 transition-colors uppercase">{alert.patient?.name || 'Unknown Protocol'}</div>
+                  <div className="flex items-center text-white/30 text-[10px] font-mono font-bold">
+                    <Clock size={10} className="mr-1" /> NOW
                   </div>
                 </div>
-                <div className="font-mono text-xs text-emergency mb-1">{alert.condition}</div>
-                <div className="flex justify-between items-end">
-                  <span className={`text-[10px] font-bold px-1.5 rounded uppercase
-                    ${isCritical ? 'bg-emergency/20 text-emergency' : 
-                      isModerate ? 'bg-moderate/20 text-moderate' : 'bg-normal/20 text-normal'}`}
+                
+                <div className="font-mono text-[11px] text-red-500/90 font-bold mb-3 tracking-tight">{alert.condition}</div>
+                
+                <div className="flex justify-between items-center">
+                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-sm tracking-widest
+                    ${isCritical ? 'bg-red-600 text-white shadow-[0_0_8px_rgba(220,38,38,0.3)]' : 
+                      isModerate ? 'bg-orange-600 text-white' : 'bg-emerald-600 text-white'}`}
                   >
                     {alert.severity}
                   </span>
-                  <span className="font-mono text-[10px] text-gray-500">ETA: {Math.floor(alert.eta_seconds / 60)}m</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] text-white/40 font-bold uppercase">ETA</span>
+                    <span className="font-mono text-xs text-white font-black">{Math.floor(alert.eta_seconds / 60)}M</span>
+                  </div>
                 </div>
               </div>
             );

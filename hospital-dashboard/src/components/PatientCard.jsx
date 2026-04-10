@@ -36,67 +36,73 @@ export default function PatientCard({ patient, hospitalId }) {
   if (!patient) return null;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden text-[var(--text)]">
-      <div className="flex justify-between items-start mb-6 shrink-0">
+    <div className="flex flex-col h-full overflow-hidden text-white bg-[#080808] p-6 rounded-2xl border border-[#111] shadow-2xl">
+      <div className="flex justify-between items-start mb-8 shrink-0">
         <div>
-          <h2 className="text-2xl font-bold font-sans tracking-tight leading-tight">{patient.patient?.name || 'Unknown Patient'}</h2>
-          <div className="font-mono text-sm text-[var(--text2)] mt-1">
-            AGE: {patient.patient?.age || '?'}, SEX: M | TOKEN: <span className="border-b border-dashed border-[var(--text3)] text-[var(--text)]">{patient.token}</span>
+          <h2 className="text-3xl font-black font-syne tracking-tight leading-tight uppercase text-white">{patient.patient?.name || 'Unknown Protocol'}</h2>
+          <div className="font-mono text-xs text-white/40 mt-2 font-bold tracking-widest flex items-center gap-3">
+            <span>AGE: {patient.patient?.age || '??'}</span>
+            <span className="w-1 h-1 bg-white/20 rounded-full"></span>
+            <span>TOKEN: <span className="text-red-500">{patient.token}</span></span>
           </div>
         </div>
-        <div className={`p-3 rounded border text-center min-w-[100px]
-          ${patient.severity === 'CRITICAL' ? 'bg-[var(--red)]/10 border-[var(--red)]' : 'bg-[var(--amber)]/10 border-[var(--amber)]'}`}>
-          <div className="text-[10px] font-mono text-[var(--text2)] uppercase tracking-widest mb-1">AI SCORE</div>
-          <div className={`text-2xl font-bold ${patient.severity === 'CRITICAL' ? 'text-[var(--red)]' : 'text-[var(--amber)]'}`}>
+        <div className={`p-4 rounded-xl border-2 text-center min-w-[120px] transition-all duration-500
+          ${patient.severity === 'CRITICAL' ? 'bg-red-600/10 border-red-600 shadow-[0_0_20px_rgba(220,38,38,0.2)]' : 'bg-orange-600/10 border-orange-600'}`}>
+          <div className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] mb-1 font-syne">AI SEVERITY</div>
+          <div className={`text-3xl font-black font-mono ${patient.severity === 'CRITICAL' ? 'text-red-500 drop-shadow-[0_0_10px_rgba(220,38,38,0.5)]' : 'text-orange-500'}`}>
             {patient.priority_score?.toFixed(1) || '0.0'}
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-6 pr-2">
+      <div className="flex-1 overflow-y-auto space-y-8 pr-2 custom-scrollbar">
         {/* Condition Box */}
-        <div className="bg-[var(--card)] p-4 rounded-xl border border-[var(--border)]">
-          <div className="flex items-center gap-2 mb-2">
-            <Activity className="w-4 h-4 text-[var(--text3)]" />
-            <h3 className="font-mono text-xs text-[var(--text3)] uppercase tracking-widest">Suspected Condition</h3>
+        <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-red-600"></div>
+          <div className="flex items-center gap-3 mb-3">
+            <Activity className="w-4 h-4 text-red-500/70" />
+            <h3 className="font-syne font-black text-[10px] text-white/40 uppercase tracking-[0.2em]">PATHOLOGY CLASSIFIED</h3>
           </div>
-          <div className="font-sans text-xl text-[var(--red)]">{patient.condition}</div>
+          <div className="font-syne font-black text-2xl text-white tracking-tight uppercase">{patient.condition}</div>
         </div>
 
         {/* Medical History */}
-        <div className="bg-[var(--card)] p-4 rounded-xl border border-[var(--border)]">
-          <div className="flex items-center gap-2 mb-3">
-            <FileText className="w-4 h-4 text-[var(--text3)]" />
-            <h3 className="font-mono text-xs text-[var(--text3)] uppercase tracking-widest">Medical Chart (AI summary)</h3>
+        <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
+          <div className="flex items-center gap-3 mb-5">
+            <FileText className="w-4 h-4 text-white/30" />
+            <h3 className="font-syne font-black text-[10px] text-white/40 uppercase tracking-[0.2em]">CLINICAL INTELLIGENCE</h3>
           </div>
-          <div className="grid grid-cols-2 gap-4 font-mono text-sm">
-            <div><span className="text-[var(--text2)] block mb-1">Blood Type:</span><span>O+</span></div>
+          <div className="grid grid-cols-2 gap-6 font-mono text-[13px] font-bold">
             <div>
-              <span className="text-[var(--text2)] block mb-1">Allergies:</span>
-              <span className="text-[var(--amber)] bg-[var(--amber)]/10 px-2 py-0.5 rounded flex items-center inline-flex gap-1">
-                <AlertTriangle size={12}/> Penicillin
+              <span className="text-white/30 block mb-2 tracking-widest uppercase text-[10px]">Blood Analytics</span>
+              <span className="text-white text-lg">O- NEGATIVE</span>
+            </div>
+            <div>
+              <span className="text-white/30 block mb-2 tracking-widest uppercase text-[10px]">Known Contraindications</span>
+              <span className="text-red-500 bg-red-500/10 px-3 py-1 rounded-sm flex items-center inline-flex gap-2 border border-red-500/20">
+                <AlertTriangle size={12}/> PENICILLIN
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-4 pt-4 border-t border-[var(--border)] shrink-0 grid grid-cols-2 gap-3">
+      <div className="mt-8 pt-6 border-t border-white/5 shrink-0 grid grid-cols-2 gap-4">
         <button 
           onClick={handleAccept}
           disabled={accepted}
-          className={`py-3 rounded-lg font-bold font-sans flex items-center justify-center gap-2 transition-colors
-            ${accepted ? 'bg-[var(--green)]/20 text-[var(--green)] border border-[var(--green)]/50' : 'bg-transparent text-[var(--text)] border-2 border-[var(--text)] hover:bg-[var(--text)] hover:text-[var(--bg)]'}`}
+          className={`py-4 rounded-xl font-black font-syne text-xs tracking-[0.1em] flex items-center justify-center gap-3 transition-all duration-300
+            ${accepted ? 'bg-emerald-600/20 text-emerald-500 border border-emerald-500/50' : 'bg-white text-black hover:bg-red-600 hover:text-white shadow-xl'}`}
         >
-          {accepted ? <><CheckCircle size={18} /> ACCEPTED</> : 'ACCEPT CASE'}
+          {accepted ? <><CheckCircle size={18} /> CONFIRMED</> : 'ACCEPT PROTOCOL'}
         </button>
         <button 
           onClick={handleMarkArrived}
           disabled={arrived}
-          className={`py-3 rounded-lg font-bold font-sans flex items-center justify-center gap-2 transition-colors
-            ${arrived ? 'bg-[var(--blue)]/20 text-[var(--blue)] border border-[var(--blue)]/50' : 'bg-[var(--blue)]/20 text-[var(--blue)] border border-[var(--blue)]/50 hover:bg-[var(--blue)] hover:text-white'}`}
+          className={`py-4 rounded-xl font-black font-syne text-xs tracking-[0.1em] flex items-center justify-center gap-3 transition-all duration-300
+            ${arrived ? 'bg-blue-600/20 text-blue-400 border border-blue-400/50' : 'bg-transparent text-white border-2 border-white/20 hover:border-blue-600 hover:bg-blue-600/10'}`}
         >
-          {arrived ? <><MapPin size={18} /> ARRIVED</> : 'MARK ARRIVED'}
+          {arrived ? <><MapPin size={18} /> AT BASE</> : 'MARK ARRIVAL'}
         </button>
       </div>
     </div>

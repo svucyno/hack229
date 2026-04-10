@@ -36,66 +36,66 @@ export default function ResourceBar({ hospitalId }) {
   const isIcuWarning = icuOccupancy > 0.7;
 
   return (
-    <footer className="h-16 bg-navy-800 border-t border-navy-700 shrink-0 flex items-center px-6 gap-8">
+    <footer className="h-16 bg-[#080808] border-t border-[#111] shrink-0 flex items-center px-8 gap-10 relative z-10">
       
-      {/* Beds Section */}
-      <div className="flex items-center gap-3 w-1/4">
-        <BedDouble className="text-gray-400" />
+      {/* General Capacity */}
+      <div className="flex items-center gap-4 w-1/4">
+        <BedDouble className="text-white/30" size={18} />
         <div className="flex-1">
-          <div className="flex justify-between text-[10px] font-mono text-gray-400 mb-1">
-            <span>GENERAL BEDS</span>
-            <span>{hospital.beds_occupied} / {hospital.beds_total}</span>
+          <div className="flex justify-between text-[9px] font-black font-syne text-white/40 mb-1.5 tracking-widest uppercase">
+            <span>GENERAL WARD</span>
+            <span className="text-white/60">{hospital.beds_occupied} / {hospital.beds_total}</span>
           </div>
-          <div className="h-1.5 w-full bg-navy-900 rounded-full overflow-hidden">
+          <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
             <div 
-              className={`h-full rounded-full transition-all duration-500
-                ${bedOccupancy > 0.8 ? 'bg-emergency' : bedOccupancy > 0.5 ? 'bg-moderate' : 'bg-normal'}`}
+              className={`h-full rounded-full transition-all duration-700
+                ${bedOccupancy > 0.8 ? 'bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.5)]' : bedOccupancy > 0.5 ? 'bg-orange-500' : 'bg-emerald-500'}`}
               style={{ width: `${Math.min(100, bedOccupancy * 100)}%` }}
             ></div>
           </div>
         </div>
       </div>
 
-      {/* ICU Section */}
-      <div className="flex items-center gap-3 w-1/4">
-        <Stethoscope className="text-gray-400" />
+      {/* ICU Status */}
+      <div className="flex items-center gap-4 w-1/4">
+        <Stethoscope className="text-white/30" size={18} />
         <div className="flex-1">
-          <div className="flex justify-between text-[10px] font-mono text-gray-400 mb-1">
-            <span>ICU STATUS</span>
-            <span>{Math.floor(hospital.icu_beds * icuOccupancy)} / {hospital.icu_beds}</span>
+          <div className="flex justify-between text-[9px] font-black font-syne text-white/40 mb-1.5 tracking-widest uppercase">
+            <span>ICU INTENSITY</span>
+            <span className="text-white/60">{Math.floor(hospital.icu_beds * icuOccupancy)} / {hospital.icu_beds}</span>
           </div>
-          <div className="h-1.5 w-full bg-navy-900 rounded-full overflow-hidden">
+          <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
             <div 
-              className={`h-full rounded-full transition-all duration-500 ${isIcuWarning ? 'bg-emergency' : 'bg-moderate'}`}
+              className={`h-full rounded-full transition-all duration-700 ${isIcuWarning ? 'bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.5)]' : 'bg-orange-500'}`}
               style={{ width: `${icuOccupancy * 100}%` }}
             ></div>
           </div>
         </div>
       </div>
 
-      {/* Emergency Bay */}
-      <div className="flex items-center gap-2 border-l border-navy-700 pl-8">
-        <DoorOpen size={16} className={hospital.emergency_bay ? "text-normal" : "text-emergency"} />
+      {/* Trauma Bay */}
+      <div className="flex items-center gap-3 border-l border-white/5 pl-10">
+        <DoorOpen size={18} className={hospital.emergency_bay ? "text-emerald-500" : "text-red-500 animate-pulse"} />
         <div>
-          <div className="text-[10px] font-mono text-gray-500">TRAUMA BAY</div>
-          <div className={`text-sm font-bold font-sans ${hospital.emergency_bay ? 'text-normal' : 'text-emergency'}`}>
-            {hospital.emergency_bay ? 'OPEN / RECEIVING' : 'AT CAPACITY'}
+          <div className="text-[9px] font-black font-syne text-white/30 tracking-widest uppercase">TRAUMA STATUS</div>
+          <div className={`text-[11px] font-black font-syne tracking-tight ${hospital.emergency_bay ? 'text-emerald-500' : 'text-red-500'}`}>
+            {hospital.emergency_bay ? 'RECEIVING PATIENTS' : 'DIVERSION ACTIVE'}
           </div>
         </div>
       </div>
 
       {/* Staff Check */}
-      <div className="flex items-center gap-2 border-l border-navy-700 pl-8 ml-auto">
-        <Users size={16} className="text-gray-400" />
+      <div className="flex items-center gap-3 border-l border-white/5 pl-10 ml-auto mr-4">
+        <Users size={18} className="text-white/30" />
         <div>
-          <div className="text-[10px] font-mono text-gray-500">STAFF ON CALL</div>
-          <div className="text-sm font-bold font-sans text-gray-300">12 DR / 34 RN</div>
+          <div className="text-[9px] font-black font-syne text-white/30 tracking-widest uppercase">STAFF ON CALL</div>
+          <div className="text-[11px] font-black font-syne text-white/70 tracking-tight">12 PHYSICIANS / 34 NURSES</div>
         </div>
       </div>
 
       {isIcuWarning && (
-        <div className="absolute bottom-16 right-4 mb-2 bg-moderate/10 border border-moderate text-moderate text-xs px-3 py-2 rounded-lg font-mono animate-bounce shadow-lg">
-          WARNING: ICU approaching capacity (70%+)
+        <div className="absolute -top-12 right-6 bg-red-600/10 border border-red-600 text-red-500 text-[10px] px-3 py-1.5 rounded-sm font-black font-syne tracking-widest animate-bounce shadow-2xl">
+          CRITICAL: ICU CAPACITY &gt; 75%
         </div>
       )}
 

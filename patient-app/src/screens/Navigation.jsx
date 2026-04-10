@@ -1,122 +1,125 @@
 import { useEffect, useState, useRef } from "react"
-import { updateLocation } from "../api/medirush"
 
 export default function NavigationScreen({ go, selectedHospital, token, showToast }) {
-  const h = selectedHospital || { name:"Apollo Hospitals Tirupati", eta_seconds:480, id:"h1", lat:13.6213, lng:79.4091 }
-  const [eta, setEta] = useState(h.eta_seconds)
-  const [doctorReady, setDoctorReady] = useState(false)
-  const [showAmbulance, setShowAmbulance] = useState(false)
-
-  const fmt = (s) => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`
-
+  const mapRef = useRef(null)
+  const [eta, setEta] = useState(720) 
+  const [arrived, setArrived] = useState(false)
+  
   useEffect(() => {
-    const t = setInterval(() => setEta(e => Math.max(0, e-1)), 1000)
-    return () => clearInterval(t)
-  }, [])
+    if (!window.google) return
+    const h = selectedHospital || { name: "Apollo Hospitals", lat: 13.628, lng: 79.419 }
+    
+    const map = new window.google.maps.Map(mapRef.current, {
+      center: { lat: 13.628, lng: 79.419 },
+      zoom: 15,
+      disableDefaultUI: true,
+      styles: [
+        { "featureType": "all", "elementType": "labels.text.fill", "stylers": [{ "color": "#64748b" }] },
+        { "featureType": "all", "elementType": "labels.text.stroke", "stylers": [{ "visibility": "on" }, { "color": "#ffffff" }, { "lightness": 16 }] },
+        { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [{ "color": "#fefefe" }, { "lightness": 20 }] },
+        { "featureType": "landscape", "elementType": "geometry.fill", "stylers": [{ "color": "#f5f5f5" }, { "lightness": 20 }] },
+        { "featureType": "poi", "elementType": "geometry.fill", "stylers": [{ "color": "#f5f5f5" }, { "lightness": 21 }] },
+        { "featureType": "road.highway", "elementType": "geometry.fill", "stylers": [{ "color": "#ffffff" }, { "lightness": 17 }] },
+        { "featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [{ "color": "#ffffff" }, { "lightness": 29 }, { "weight": 0.2 }] },
+        { "featureType": "road.arterial", "elementType": "geometry.fill", "stylers": [{ "color": "#ffffff" }, { "lightness": 18 }] },
+        { "featureType": "road.local", "elementType": "geometry.fill", "stylers": [{ "color": "#ffffff" }, { "lightness": 16 }] },
+        { "featureType": "transit", "elementType": "geometry.fill", "stylers": [{ "color": "#f2f2f2" }, { "lightness": 19 }] },
+        { "featureType": "water", "elementType": "geometry.fill", "stylers": [{ "color": "#e9e9e9" }, { "lightness": 17 }] }
+      ]
+    })
 
-  useEffect(() => {
-    const t = setInterval(() => {
-      navigator.geolocation?.getCurrentPosition(pos => {
-        updateLocation(token||"A3F9-72XK", h.id, pos.coords.latitude, pos.coords.longitude)
-      })
-    }, 10000)
-    return () => clearInterval(t)
-  }, [])
-
-  useEffect(() => {
-    const ws = new WebSocket(`${import.meta.env.VITE_WS_BASE||"ws://localhost:8000"}/ws/patient/${token||"A3F9-72XK"}`)
-    ws.onmessage = (e) => {
-      const msg = JSON.parse(e.data)
-      if (msg.type === "DOCTOR_ACCEPTED") setDoctorReady(true)
-      if (msg.type === "ARRIVED" || msg.type === "COMPLETED") {
-        showToast("You've arrived! 🎉")
-        setTimeout(() => go("feedback"), 2000)
+    new window.google.maps.Marker({
+      position: { lat: 13.628, lng: 79.419 },
+      map,
+      title: h.name,
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: 14,
+        fillColor: "#EF4444",
+        fillOpacity: 1,
+        strokeWeight: 5,
+        strokeColor: "#FFFFFF",
       }
-    }
-    return () => ws.close()
-  }, [token, h.id])
+    })
+
+    const timer = setInterval(() => setEta(e => Math.max(0, e - 1)), 1000)
+    return () => clearInterval(timer)
+  }, [selectedHospital])
+
+  const handleArrival = () => {
+    setArrived(true)
+    setTimeout(() => go("confirmation"), 1500)
+  }
+
+  const m = Math.floor(eta / 60), s = eta % 60
 
   return (
-    <div className="screen" style={{ padding:0 }}>
-      {/* Map Placeholder */}
-      <div style={{ height:"55%", background:"#F1F5F9", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
-        {/* Fake map grid */}
-        <svg width="100%" height="100%" style={{ position:"absolute", inset:0, opacity:0.3 }}>
-          {[...Array(10)].map((_,i) => <line key={`h${i}`} x1="0" y1={i*50} x2="100%" y2={i*50} stroke="var(--green)" strokeWidth="0.5"/>)}
-          {[...Array(10)].map((_,i) => <line key={`v${i}`} x1={i*50} y1="0" x2={i*50} y2="100%" stroke="var(--green)" strokeWidth="0.5"/>)}
-        </svg>
-        {/* Route line */}
-        <svg width="100%" height="100%" style={{ position:"absolute", inset:0 }}>
-          <path d="M 80 300 Q 200 180 320 120" fill="none" stroke="var(--green)" strokeWidth="3" strokeLinecap="round" strokeDasharray="8 4"/>
-        </svg>
-        {/* Patient dot */}
-        <div style={{ position:"absolute", bottom:80, left:80 }}>
-          <div style={{ width:16, height:16, borderRadius:"50%", background:"var(--blue)", boxShadow:"0 0 0 6px var(--blue-glow)", animation:"heartbeat 1.2s ease infinite" }} />
+    <div className="screen" style={{ background: "#FFFFFF", display: "flex", flexDirection: "column", padding: 0 }}>
+      {/* SCANLINE OVERLAY */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.01] z-50" style={{ backgroundImage: 'linear-gradient(rgba(239, 68, 68, 0) 50%, rgba(239, 68, 68, 0.05) 50%), linear-gradient(90deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.02), rgba(239, 68, 68, 0.05))', backgroundSize: '100% 2px, 3px 100%' }}></div>
+
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 pt-14 pb-4 bg-white/95 backdrop-blur-xl border-b border-[#F1F5F9] z-10">
+        <div className="flex items-center gap-4">
+          <div style={{ width: 12, height: 12, background: "var(--red)", borderRadius: "50%", animation: "glowPulse 1.5s infinite" }}></div>
+          <p className="font-syne italic" style={{ fontSize: 18, fontWeight: 900, color: "var(--text)", letterSpacing: "0.05em" }}>LIVE INTERCEPT</p>
         </div>
-        {/* Hospital pin */}
-        <div style={{ position:"absolute", top:60, right:80, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-          <div style={{ background:"var(--red)", borderRadius:8, padding:"4px 8px", fontSize:11, color:"#fff", fontWeight:700 }}>🏥 {h.name.split(" ")[0]}</div>
-          <div style={{ width:2, height:12, background:"var(--red)" }} />
-          <div style={{ width:8, height:8, borderRadius:"50%", background:"var(--red)" }} />
+        <div className="text-right">
+           <p className="font-mono" style={{ fontSize: 10, color: "var(--red2)", fontWeight: 900, letterSpacing: "0.1em" }}>CASE UPLINK</p>
+           <p className="font-mono" style={{ fontSize: 14, fontWeight: 900, color: "var(--text)" }}>{token || "MED-6V29"}</p>
         </div>
-        {/* ETA banner */}
-        <div style={{ position:"absolute", top:12, left:"50%", transform:"translateX(-50%)", background:"rgba(255,255,255,0.9)", borderRadius:20, padding:"6px 16px", border:"1px solid var(--green)", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
-          <span className="font-mono" style={{ fontSize:12, color:"var(--green)" }}>Arriving in ~{Math.ceil(eta/60)} min</span>
-        </div>
-        <p className="font-dm" style={{ color:"var(--text3)", fontSize:11, zIndex:1, opacity: 0.5 }}>Live Navigation Map</p>
+      </header>
+
+      {/* Map Content */}
+      <div style={{ flex: 1, position: "relative" }}>
+         <div ref={mapRef} style={{ width: "100%", height: "100%" }}></div>
+         
+         {/* Live Overlay Panels */}
+         <div style={{ position: "absolute", bottom: 28, left: 16, right: 16, zIndex: 10 }}>
+            <div className="card" style={{ padding: "32px", background: "#FFFFFF", borderRadius: "34px", boxShadow: "0 25px 60px rgba(0,0,0,0.12)", border: "2px solid #F1F5F9", position: "relative", overflow: "hidden" }}>
+               <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "4px", background: "linear-gradient(90deg, var(--red), var(--red2))" }}></div>
+               
+               <div className="flex justify-between items-center mb-8">
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 10, color: "var(--red2)", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: 6 }}>DESTINATION FACILITY</p>
+                    <p className="font-syne" style={{ fontSize: 24, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.01em" }}>{selectedHospital?.name || "Apollo Hospitals"}</p>
+                  </div>
+                  <div style={{ textAlign: "right", paddingLeft: 20 }}>
+                    <p className="font-mono" style={{ fontSize: 36, fontWeight: 900, color: "var(--text)", leading: 1, letterSpacing: "-0.05em" }}>{m}:{String(s).padStart(2,'0')}</p>
+                    <p className="font-mono" style={{ fontSize: 11, color: "var(--red2)", fontWeight: 900, letterSpacing: "0.1em" }}>ETA</p>
+                  </div>
+               </div>
+
+               <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 16 }}>
+                  <button 
+                  onClick={handleArrival}
+                  className="btn-primary" 
+                  style={{ height: 76, borderRadius: 24, background: arrived ? "var(--green)" : "var(--red)", boxShadow: arrived ? "0 20px 50px rgba(16, 185, 129, 0.4)" : "0 20px 50px rgba(255, 49, 49, 0.4)", transition: "0.4s" }}
+                  >
+                  <span className="font-syne italic" style={{ fontSize: 16, fontWeight: 900 }}>{arrived ? "HANDOVER SUCCESSFUL" : "SIGNAL ARRIVAL"}</span>
+                  </button>
+                  <button style={{ width: 76, height: 76, borderRadius: 24, border: "2.5px solid #F1F5F9", background: "#FFFFFF", color: "var(--text)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "0.2s" }}>
+                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                  </button>
+               </div>
+            </div>
+         </div>
+
+         {/* Medical Telemetry Panel - Floating */}
+         <div style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}>
+            <div style={{ background: "rgba(255,255,255,0.95)", backdropFilter: "blur(12px)", border: "1.5px solid #F1F5F9", padding: "12px 18px", borderRadius: 20, display: "flex", alignItems: "center", gap: 16, boxShadow: "0 10px 20px rgba(0,0,0,0.05)" }}>
+               <div style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: 9, color: "var(--text3)", fontWeight: 900, marginBottom: 2 }}>BPM</p>
+                  <p className="font-mono" style={{ fontSize: 16, fontWeight: 900, color: "var(--red2)" }}>114</p>
+               </div>
+               <div style={{ width: 1, height: 24, background: "#E2E8F0" }}></div>
+               <div style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: 9, color: "var(--text3)", fontWeight: 900, marginBottom: 2 }}>O2</p>
+                  <p className="font-mono" style={{ fontSize: 16, fontWeight: 900, color: "var(--text)" }}>92%</p>
+               </div>
+            </div>
+         </div>
       </div>
-
-      {/* Bottom Panel */}
-      <div style={{ flex:1, background:"var(--bg)", borderTop:"1px solid var(--border)", padding:"16px 20px 32px", display:"flex", flexDirection:"column", gap:12 }}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-syne" style={{ fontSize:15, fontWeight:700, color:"var(--text)" }}>{h.name}</p>
-            <p className="font-dm" style={{ fontSize:11, color:"var(--text2)" }}>Emergency Route Active</p>
-          </div>
-          <span className={`badge ${doctorReady?"badge-green":"badge-gold"}`}>
-            {doctorReady ? "✅ Doctor Ready" : "⏳ Notifying..."}
-          </span>
-        </div>
-
-        {/* ETA Countdown */}
-        <div className="text-center" style={{ padding:"8px 0" }}>
-          <span className="font-mono" style={{ fontSize:42, fontWeight:700, color:"var(--text)", letterSpacing:"-0.02em" }}>{fmt(eta)}</span>
-          <p className="font-dm" style={{ fontSize:11, color:"var(--text2)", marginTop:2 }}>estimated arrival</p>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-3">
-          <button onClick={() => setShowAmbulance(true)} style={{ flex:1, height:48, background:"var(--card)", border:"1px solid var(--border)", borderRadius:12, color:"var(--text)", fontSize:12, fontWeight:500, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
-            🚑 Ambulance
-          </button>
-          <button onClick={() => { navigator.clipboard.writeText(`https://maps.google.com/?q=${h.lat},${h.lng}`); showToast("Link copied!") }} style={{ flex:1, height:48, background:"var(--card)", border:"1px solid var(--border)", borderRadius:12, color:"var(--text)", fontSize:12, fontWeight:500, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
-            📍 Share
-          </button>
-          <button onClick={() => go("confirmation")} style={{ flex:1, height:48, background:"var(--card)", border:"1px solid var(--border)", borderRadius:12, color:"var(--text)", fontSize:12, fontWeight:500, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
-            📋 Status
-          </button>
-        </div>
-      </div>
-
-      {/* Ambulance Overlay */}
-      {showAmbulance && (
-        <div className="drug-popup-overlay" onClick={() => setShowAmbulance(false)}>
-          <div className="drug-popup" onClick={e => e.stopPropagation()}>
-            <h3 className="font-syne" style={{ fontSize:18, fontWeight:700, marginBottom:16 }}>Emergency Numbers</h3>
-            {[{num:"108", label:"National Emergency Ambulance"},{num:"102", label:"Andhra Pradesh Ambulance"},{num:"1066", label:"Disaster Management"}].map(n => (
-              <a key={n.num} href={`tel:${n.num}`} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 0", borderBottom:"1px solid #2C2C2C", textDecoration:"none" }}>
-                <div>
-                  <p className="font-mono" style={{ fontSize:22, fontWeight:700, color:"#E53935" }}>{n.num}</p>
-                  <p className="font-dm" style={{ fontSize:12, color:"#9E9E9E" }}>{n.label}</p>
-                </div>
-                <div style={{ width:40, height:40, borderRadius:"50%", background:"rgba(229,57,53,0.1)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                  📞
-                </div>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
